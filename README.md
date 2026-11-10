@@ -64,7 +64,7 @@ builds the project, checks C++ formatting, and runs the registered tests with CT
 
 ## Public headers
 
-- `GPXParser.hpp` parses GPX XML strings and files into the `visualgpx::core` data
+- `GPXParser.hpp` parses GPX XML strings and files into the `qGpx::core` data
 	model.
 - `GPXAnalytics.hpp` calculates distance, elevation change, and duration.
 - `GPXModels.hpp` defines the GPX data, track, segment, point, and result types.
