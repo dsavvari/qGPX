@@ -28,6 +28,40 @@ cmake -S . -B build -DBUILD_TESTS=OFF
 cmake --build build --parallel
 ```
 
+## Code formatting
+
+Use `clang-format` with the repository's `.clang-format` rules to format the
+maintained C++ files. The commands below cover the public headers, implementation,
+and tests:
+
+```sh
+clang-format -i include/*.h include/*.hpp src/*.cpp test/*.cpp test/unit/*.cpp
+```
+
+Check formatting without changing files:
+
+```sh
+clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp test/*.cpp test/unit/*.cpp
+```
+
+Formatting is checked in CI, but is not part of the CMake build or configured to
+run on save. CI installs the Ubuntu-provided `clang-format` package; its version is
+not pinned.
+
+To enable the repository's pre-commit formatting check in this clone, run once:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+The hook checks staged C++ files and blocks commits with formatting issues. It
+requires `clang-format` to be installed.
+
+## Continuous integration
+
+GitHub Actions runs on pushes and pull requests targeting `main`. It configures and
+builds the project, checks C++ formatting, and runs the registered tests with CTest.
+
 ## Public headers
 
 - `GPXParser.hpp` parses GPX XML strings and files into the `visualgpx::core` data
