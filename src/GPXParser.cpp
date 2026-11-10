@@ -218,7 +218,7 @@ static void XMLCALL endElementHandler(void* userData, const char* /* name */)
     switch (elem)
     {
     case ParserState::Element::Elevation:
-        if (state->currentPoint && !state->characterData.empty())
+        if (state->currentPoint)
         {
             double elevation = 0.0;
             if (!parseFiniteDouble(state->characterData, elevation))

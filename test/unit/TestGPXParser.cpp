@@ -40,6 +40,17 @@ TEST(GPXParser, InvalidCoordinateFailure)
     EXPECT_EQ(result.errorMessage, "Invalid latitude value");
 }
 
+TEST(GPXParser, HexadecimalCoordinateFailure)
+{
+    GPXParser parser;
+    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="0x1p5" lon="6.0"/></trkseg></trk></gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.errorMessage, "Invalid latitude value");
+}
+
 TEST(GPXParser, OutOfRangeCoordinateFailure)
 {
     GPXParser parser;
@@ -55,6 +66,30 @@ TEST(GPXParser, InvalidElevationFailure)
 {
     GPXParser parser;
     const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="45.0" lon="6.0"><ele>high</ele></trkpt>)"
+                      R"(</trkseg></trk></gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.errorMessage, "Invalid elevation value");
+}
+
+TEST(GPXParser, HexadecimalElevationFailure)
+{
+    GPXParser parser;
+    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="45.0" lon="6.0"><ele>0x1p5</ele></trkpt>)"
+                      R"(</trkseg></trk></gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.errorMessage, "Invalid elevation value");
+}
+
+TEST(GPXParser, EmptyElevationFailure)
+{
+    GPXParser parser;
+    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="45.0" lon="6.0"><ele/></trkpt>)"
                       R"(</trkseg></trk></gpx>)";
 
     auto result = parser.parse(gpx);
