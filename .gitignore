@@ -1,0 +1,6 @@
+# CMake build output
+/build/
+/cmake-build-*/
+
+# macOS metadata
+.DS_Store

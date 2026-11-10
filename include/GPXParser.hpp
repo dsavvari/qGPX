@@ -1,0 +1,41 @@
+// GPXParser.hpp
+// Copyright (c) 2026 Dimitris Savvaris
+// SPDX-License-Identifier: MIT
+
+#pragma once
+
+#include "GPXModels.hpp"
+
+#include <string>
+
+namespace visualgpx
+{
+namespace core
+{
+
+/// GPX XML parser using libexpat (SAX-style streaming parser)
+class GPXParser
+{
+public:
+    GPXParser() = default;
+    ~GPXParser() = default;
+
+    /// Parse GPX data from XML string
+    /// @param xmlContent The GPX XML content as a string
+    /// @return Result containing GPXData on success, or error message on failure
+    Result<GPXData> parse(const std::string& xmlContent);
+
+    /// Parse GPX data from file path
+    /// @param filePath Path to the GPX file
+    /// @return Result containing GPXData on success, or error message on failure
+    Result<GPXData> parseFile(const std::string& filePath);
+
+    /// Parse ISO 8601 time string (e.g., "2026-03-03T09:51:09.000Z")
+    /// @param timeStr ISO 8601 formatted time string
+    /// @return Optional time_point, or nullopt if parsing fails
+    static std::optional<std::chrono::system_clock::time_point>
+    parseTime(const std::string& timeStr);
+};
+
+} // namespace core
+} // namespace visualgpx
