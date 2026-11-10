@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace visualgpx
+namespace qGpx
 {
 namespace core
 {
@@ -202,4 +202,4 @@ void GPXAnalytics::analyzeGPXData(GPXData& gpxData)
 }
 
 } // namespace core
-} // namespace visualgpx
+} // namespace qGpx

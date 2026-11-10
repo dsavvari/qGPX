@@ -13,7 +13,7 @@
 #include <cmath>
 #include <cstring>
 
-using namespace visualgpx::core;
+using namespace qGpx::core;
 
 // ============================================================================
 // MARK: - Internal Helpers

@@ -9,7 +9,7 @@
 #include <iostream>
 #include <iomanip>
 
-using namespace visualgpx::core;
+using namespace qGpx::core;
 
 int main(int argc, char** argv)
 {
