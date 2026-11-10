@@ -8,7 +8,7 @@
 
 #include <string>
 
-namespace visualgpx
+namespace qGpx
 {
 namespace core
 {
@@ -38,4 +38,4 @@ public:
 };
 
 } // namespace core
-} // namespace visualgpx
+} // namespace qGpx

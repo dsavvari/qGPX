@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace visualgpx
+namespace qGpx
 {
 namespace core
 {
@@ -119,4 +119,4 @@ template <typename T> struct Result
 };
 
 } // namespace core
-} // namespace visualgpx
+} // namespace qGpx

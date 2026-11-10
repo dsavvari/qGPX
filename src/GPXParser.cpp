@@ -8,17 +8,15 @@
 
 #include <expat.h>
 
-#include <cerrno>
-#include <cctype>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
+#include <locale>
 #include <sstream>
 
-namespace visualgpx
+namespace qGpx
 {
 namespace core
 {
@@ -77,19 +75,18 @@ struct ParserState
 
 static bool parseFiniteDouble(const std::string& value, double& result)
 {
-    errno = 0;
-    char* end = nullptr;
-    double parsed = std::strtod(value.c_str(), &end);
-    if (end == value.c_str() || errno == ERANGE || !std::isfinite(parsed))
+    std::istringstream input(value);
+    input.imbue(std::locale::classic());
+
+    double parsed = 0.0;
+    input >> parsed;
+    if (input.fail() || !std::isfinite(parsed))
     {
         return false;
     }
 
-    while (*end && std::isspace(static_cast<unsigned char>(*end)))
-    {
-        ++end;
-    }
-    if (*end)
+    input >> std::ws;
+    if (!input.eof())
     {
         return false;
     }
@@ -405,4 +402,4 @@ GPXParser::parseTime(const std::string& timeStr)
 }
 
 } // namespace core
-} // namespace visualgpx
+} // namespace qGpx

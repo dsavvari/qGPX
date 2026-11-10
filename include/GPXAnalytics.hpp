@@ -6,7 +6,7 @@
 
 #include "GPXModels.hpp"
 
-namespace visualgpx
+namespace qGpx
 {
 namespace core
 {
@@ -68,4 +68,4 @@ private:
 };
 
 } // namespace core
-} // namespace visualgpx
+} // namespace qGpx

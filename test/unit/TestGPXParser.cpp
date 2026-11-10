@@ -8,7 +8,7 @@
 
 #include <gtest/gtest.h>
 
-using namespace visualgpx::core;
+using namespace qGpx::core;
 
 // Basic Parser Tests
 TEST(GPXParser, EmptyStringFailure)
