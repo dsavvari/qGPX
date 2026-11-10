@@ -29,6 +29,51 @@ TEST(GPXParser, InvalidXMLFailure)
     EXPECT_TRUE(result.errorMessage.find("XML parsing error") != std::string::npos);
 }
 
+TEST(GPXParser, InvalidCoordinateFailure)
+{
+    GPXParser parser;
+    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="north" lon="6.0"/></trkseg></trk></gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.errorMessage, "Invalid latitude value");
+}
+
+TEST(GPXParser, OutOfRangeCoordinateFailure)
+{
+    GPXParser parser;
+    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="45.0" lon="181"/></trkseg></trk></gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.errorMessage, "Invalid longitude value");
+}
+
+TEST(GPXParser, InvalidElevationFailure)
+{
+    GPXParser parser;
+    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="45.0" lon="6.0"><ele>high</ele></trkpt>)"
+                      R"(</trkseg></trk></gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.errorMessage, "Invalid elevation value");
+}
+
+TEST(GPXParser, MissingCoordinateFailure)
+{
+    GPXParser parser;
+    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="45.0"/></trkseg></trk></gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    EXPECT_FALSE(result.success);
+    EXPECT_EQ(result.errorMessage, "Track point is missing latitude or longitude");
+}
+
 TEST(GPXParser, EmptyGPXFileFailure)
 {
     GPXParser parser;

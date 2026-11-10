@@ -8,6 +8,10 @@
 
 #include <expat.h>
 
+#include <cerrno>
+#include <cctype>
+#include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -22,6 +26,7 @@ namespace core
 // Parser State - Tracks current position in XML tree
 struct ParserState
 {
+    XML_Parser parser = nullptr;
     GPXData gpxData;
     Track currentTrack;
     TrackSegment currentSegment;
@@ -70,6 +75,35 @@ struct ParserState
     }
 };
 
+static bool parseFiniteDouble(const std::string& value, double& result)
+{
+    errno = 0;
+    char* end = nullptr;
+    double parsed = std::strtod(value.c_str(), &end);
+    if (end == value.c_str() || errno == ERANGE || !std::isfinite(parsed))
+    {
+        return false;
+    }
+
+    while (*end && std::isspace(static_cast<unsigned char>(*end)))
+    {
+        ++end;
+    }
+    if (*end)
+    {
+        return false;
+    }
+
+    result = parsed;
+    return true;
+}
+
+static void stopWithError(ParserState* state, const std::string& message)
+{
+    state->errorMessage = message;
+    XML_StopParser(state->parser, XML_FALSE);
+}
+
 // Expat Callback Handlers
 static void XMLCALL startElementHandler(void* userData, const char* name, const char** atts)
 {
@@ -113,28 +147,42 @@ static void XMLCALL startElementHandler(void* userData, const char* name, const 
         state->pushElement(ParserState::Element::TrackPoint);
 
         // Parse lat/lon attributes
-        double lat = 0.0, lon = 0.0;
-        bool hasLat = false, hasLon = false;
+        const char* latitude = nullptr;
+        const char* longitude = nullptr;
 
         for (int i = 0; atts[i]; i += 2)
         {
             if (std::strcmp(atts[i], "lat") == 0)
             {
-                lat = std::stod(atts[i + 1]);
-                hasLat = true;
+                latitude = atts[i + 1];
             }
             else if (std::strcmp(atts[i], "lon") == 0)
             {
-                lon = std::stod(atts[i + 1]);
-                hasLon = true;
+                longitude = atts[i + 1];
             }
         }
 
-        if (hasLat && hasLon)
+        if (!latitude || !longitude)
         {
-            state->currentSegment.points.emplace_back(lat, lon);
-            state->currentPoint = &state->currentSegment.points.back();
+            stopWithError(state, "Track point is missing latitude or longitude");
+            return;
         }
+
+        double lat = 0.0;
+        double lon = 0.0;
+        if (!parseFiniteDouble(latitude, lat) || lat < -90.0 || lat > 90.0)
+        {
+            stopWithError(state, "Invalid latitude value");
+            return;
+        }
+        if (!parseFiniteDouble(longitude, lon) || lon < -180.0 || lon > 180.0)
+        {
+            stopWithError(state, "Invalid longitude value");
+            return;
+        }
+
+        state->currentSegment.points.emplace_back(lat, lon);
+        state->currentPoint = &state->currentSegment.points.back();
     }
     else if (elementName == "ele")
     {
@@ -175,7 +223,13 @@ static void XMLCALL endElementHandler(void* userData, const char* /* name */)
     case ParserState::Element::Elevation:
         if (state->currentPoint && !state->characterData.empty())
         {
-            state->currentPoint->elevation = std::stod(state->characterData);
+            double elevation = 0.0;
+            if (!parseFiniteDouble(state->characterData, elevation))
+            {
+                stopWithError(state, "Invalid elevation value");
+                return;
+            }
+            state->currentPoint->elevation = elevation;
         }
         break;
 
@@ -266,6 +320,7 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
 
     // Set up parser state
     ParserState state;
+    state.parser = parser;
     XML_SetUserData(parser, &state);
     XML_SetElementHandler(parser, startElementHandler, endElementHandler);
     XML_SetCharacterDataHandler(parser, characterDataHandler);
@@ -275,6 +330,12 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
 
     if (parseResult == XML_STATUS_ERROR)
     {
+        if (!state.errorMessage.empty())
+        {
+            XML_ParserFree(parser);
+            return Result<GPXData>::Failure(state.errorMessage);
+        }
+
         std::string errorMsg = "XML parsing error at line ";
         errorMsg += std::to_string(XML_GetCurrentLineNumber(parser));
         errorMsg += ": ";
