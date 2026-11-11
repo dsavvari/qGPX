@@ -37,6 +37,45 @@ double GPXAnalytics::calculateDistance(const TrackPoint& p1, const TrackPoint& p
     return EARTH_RADIUS_METERS * c;
 }
 
+std::optional<double> GPXAnalytics::calculateSpeed(const TrackPoint& p1, const TrackPoint& p2)
+{
+    if (!p1.time || !p2.time || *p2.time <= *p1.time)
+    {
+        return std::nullopt;
+    }
+    const double seconds = std::chrono::duration<double>(*p2.time - *p1.time).count();
+    const double speed = calculateDistance(p1, p2) / seconds;
+    return std::isfinite(speed) ? std::optional<double>(speed) : std::nullopt;
+}
+
+std::optional<double> GPXAnalytics::calculateMaxSpeed(const TrackSegment& segment)
+{
+    std::optional<double> maximum;
+    for (size_t i = 1; i < segment.points.size(); ++i)
+    {
+        const auto speed = calculateSpeed(segment.points[i - 1], segment.points[i]);
+        if (speed && (!maximum || *speed > *maximum))
+        {
+            maximum = speed;
+        }
+    }
+    return maximum;
+}
+
+std::optional<double> GPXAnalytics::calculateMaxSpeed(const Track& track)
+{
+    std::optional<double> maximum;
+    for (const auto& segment : track.segments)
+    {
+        const auto speed = calculateMaxSpeed(segment);
+        if (speed && (!maximum || *speed > *maximum))
+        {
+            maximum = speed;
+        }
+    }
+    return maximum;
+}
+
 double GPXAnalytics::calculateTotalDistance(const TrackSegment& segment)
 {
     double totalDistance = 0.0;

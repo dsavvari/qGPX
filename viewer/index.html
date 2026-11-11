@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>qGPX | Track lab</title>
+  </head>
+  <body>
+    <header>
+      <div><span class="eyebrow">qGPX / DEVELOPMENT VIEWER</span><h1>Track lab</h1></div>
+      <label class="upload-button" for="file">Open GPX<input id="file" type="file" accept=".gpx,application/gpx+xml" /></label>
+    </header>
+    <main>
+      <aside>
+        <section id="drop-zone" tabindex="0" aria-label="Drop a GPX file here">
+          <strong>Your route, inspected.</strong>
+          <p>Drop a GPX file here or use Open GPX. Parsing and analysis run in the local C++ library.</p>
+          <small>GPX tracks only &middot; up to 10 MiB</small>
+        </section>
+        <p id="status" role="status">No file loaded.</p>
+        <p id="error" role="alert" hidden></p>
+        <section class="controls">
+          <label for="track">Track</label><select id="track" disabled><option>No tracks</option></select>
+          <label for="segment">Segment</label><select id="segment" disabled><option>All segments</option></select>
+          <p id="description"></p>
+          <dl id="stats"></dl>
+        </section>
+        <footer>
+          <label><input id="basemap" type="checkbox" /> OpenStreetMap basemap</label>
+          <p>Optional: enabling the basemap requests external tiles and reveals the viewed area to the tile provider. Tracks stay local.</p>
+          <a href="/third-party-licenses.txt" target="_blank" rel="noopener">Third-party licenses</a>
+        </footer>
+      </aside>
+      <div class="workspace">
+        <section class="map-panel" aria-label="Track map">
+          <div class="panel-heading"><h2>Route</h2><button id="fit" disabled>Fit track</button></div>
+          <div id="map" tabindex="0" aria-label="Interactive track map"></div>
+          <p id="map-note">Load a track to explore its geometry. A basemap is optional.</p>
+          <section class="replay" aria-label="Track replay">
+            <div class="replay-toolbar">
+              <button id="play" disabled>Play</button>
+              <button id="restart" disabled>Restart</button>
+              <label for="replay-speed">Playback speed</label>
+              <select id="replay-speed" disabled>
+                <option value="1">1x</option>
+                <option value="5">5x</option>
+                <option value="10" selected>10x</option>
+                <option value="30">30x</option>
+                <option value="60">60x</option>
+              </select>
+              <label><input id="follow" type="checkbox" disabled /> Follow camera</label>
+            </div>
+            <label for="timeline">Replay timeline</label>
+            <input id="timeline" type="range" min="0" max="0" step="any" value="0" disabled />
+            <p id="replay-mode">Load a track to replay it.</p>
+            <output id="replay-readout" for="timeline" aria-live="off">No replay position.</output>
+          </section>
+        </section>
+        <section class="profile-panel">
+          <div class="panel-heading"><h2>Elevation profile</h2><span>metres / distance in km</span></div>
+          <svg id="profile" viewBox="0 0 900 190" role="img" aria-label="Elevation profile"></svg>
+          <p id="profile-note">No elevation data loaded.</p>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

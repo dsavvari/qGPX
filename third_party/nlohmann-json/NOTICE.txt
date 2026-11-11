@@ -1,0 +1,20 @@
+nlohmann/json v3.12.0 embedded component attributions
+Source: https://github.com/nlohmann/json/tree/v3.12.0#license
+
+UTF-8 Decoder
+Copyright (c) 2008-2009 Bjoern Hoehrmann
+MIT License (see LICENSE.MIT)
+
+Grisu2 algorithm
+Copyright (c) 2009 Florian Loitsch
+MIT License (see LICENSE.MIT)
+
+Hedley
+Copyright (c) 2016-2021 Evan Nemerson
+CC0-1.0 (see LICENSES/CC0-1.0.txt)
+
+Google Abseil
+Copyright (c) 2018 The Abseil Authors
+Apache-2.0 (see LICENSES/Apache-2.0.txt)
+The Abseil compatibility implementation is not enabled for our C++17 build,
+but is retained in the unmodified upstream header.

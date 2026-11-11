@@ -19,13 +19,37 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format libexpat1-dev
 
       - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTS=ON
+        run: cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_VIEWER=ON
 
       - name: Check formatting
-        run: clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp test/*.cpp test/unit/*.cpp
+        run: clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+
+      - name: Build and test frontend
+        run: |
+          npm --prefix viewer ci
+          npm --prefix viewer run build
+          npm --prefix viewer test
 
       - name: Build
         run: cmake --build build --parallel 2
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+      - name: Verify standalone library consumers
+        run: |
+          cmake -S . -B build/core -DBUILD_TESTS=OFF -DBUILD_VIEWER=OFF
+          cmake --build build/core --parallel 2
+          cmake --install build/core --prefix "$PWD/build/install"
+          cmake -S test/integration -B build/installed-consumer -DCMAKE_PREFIX_PATH="$PWD/build/install"
+          cmake --build build/installed-consumer --parallel 2
+          ctest --test-dir build/installed-consumer --output-on-failure
+          cmake -S test/integration -B build/source-consumer -DQGPX_SOURCE_DIR="$PWD"
+          cmake --build build/source-consumer --parallel 2
+          ctest --test-dir build/source-consumer --output-on-failure

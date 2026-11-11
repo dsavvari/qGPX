@@ -4,6 +4,7 @@
 add_executable(unit_tests
     TestGPXParser.cpp
     TestGPXModels.cpp
+    TestGPXSpeed.cpp
 )
 
 # Link against Google Test and our library

@@ -1,0 +1,6 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(EXPAT)
+include("${CMAKE_CURRENT_LIST_DIR}/qGPXTargets.cmake")
+check_required_components(qGPX)
