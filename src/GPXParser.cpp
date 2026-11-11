@@ -527,7 +527,8 @@ GPXParser::parseTime(const std::string& timeStr)
         normalized.resize(9, '0');
 
         int64_t valueNs = 0;
-        const auto [ptr, ec] = std::from_chars(normalized.data(), normalized.data() + normalized.size(), valueNs);
+        const auto [ptr, ec] =
+            std::from_chars(normalized.data(), normalized.data() + normalized.size(), valueNs);
         if (ec != std::errc{} || ptr != normalized.data() + normalized.size())
         {
             return std::nullopt;
@@ -548,10 +549,12 @@ GPXParser::parseTime(const std::string& timeStr)
 
         int hours = 0;
         int minutes = 0;
-        const auto [hoursPtr, hoursEc] = std::from_chars(offsetValue.data(), offsetValue.data() + 2, hours);
-        const auto [minutesPtr, minutesEc] = std::from_chars(offsetValue.data() + 3, offsetValue.data() + 5, minutes);
-        if (hoursEc != std::errc{} || hoursPtr != offsetValue.data() + 2 || minutesEc != std::errc{} ||
-            minutesPtr != offsetValue.data() + 5)
+        const auto [hoursPtr, hoursEc] =
+            std::from_chars(offsetValue.data(), offsetValue.data() + 2, hours);
+        const auto [minutesPtr, minutesEc] =
+            std::from_chars(offsetValue.data() + 3, offsetValue.data() + 5, minutes);
+        if (hoursEc != std::errc{} || hoursPtr != offsetValue.data() + 2 ||
+            minutesEc != std::errc{} || minutesPtr != offsetValue.data() + 5)
         {
             return std::nullopt;
         }
