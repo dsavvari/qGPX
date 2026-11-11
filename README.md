@@ -120,25 +120,7 @@ Open <http://127.0.0.1:8080>. The optional external basemap is disabled by defau
 viewer dependencies. See [third-party licenses](third_party/README.md) for
 dependency sources and notices.
 
-## Continuous integration
 
-GitHub Actions runs on pushes and pull requests targeting `main`. It configures and
-builds the project with the optional viewer, checks C++ formatting, builds and tests
-the frontend, and runs the registered tests with CTest.
-
-## Public headers
-
-- `GPXParser.hpp` parses GPX XML strings and files into the `qGpx::core` data
-	model.
-- `GPXAnalytics.hpp` calculates distance, elevation change, and duration.
-- `GPXAnalytics.hpp` also exposes `calculateSpeed` and `calculateMaxSpeed` in m/s.
-  These use adjacent points within segments and ignore invalid timed intervals;
-  results are unsmoothed estimates and can reflect GPS spikes.
-- `GPXModels.hpp` defines the GPX data, track, segment, point, and result types.
-- `GPXCore.h` exposes the C API.
-  Its speed accessors (`gpx_track_get_max_speed`, `gpx_segment_get_max_speed`,
-  `gpx_segment_get_point_speed`) calculate on demand, without requiring
-  `gpx_analyze`, and return `-1` when unavailable.
 
 ## License
 

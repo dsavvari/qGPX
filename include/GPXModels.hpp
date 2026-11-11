@@ -107,12 +107,12 @@ template <typename T> struct Result
     std::optional<T> value;
     std::string errorMessage;
 
-    static Result<T> Success(T val)
+    static Result<T> makeSuccess(T val)
     {
         return Result<T>{true, std::move(val), ""};
     }
 
-    static Result<T> Failure(const std::string& error)
+    static Result<T> makeFailure(const std::string& error)
     {
         return Result<T>{false, std::nullopt, error};
     }

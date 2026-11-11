@@ -107,7 +107,7 @@ TEST(GPXData, WithTracks)
 // Result Tests
 TEST(Result, SuccessCreation)
 {
-    auto result = Result<int>::Success(42);
+    auto result = Result<int>::makeSuccess(42);
 
     EXPECT_TRUE(result.success);
     ASSERT_TRUE(result.value.has_value());
@@ -117,7 +117,7 @@ TEST(Result, SuccessCreation)
 
 TEST(Result, FailureCreation)
 {
-    auto result = Result<int>::Failure("Something went wrong");
+    auto result = Result<int>::makeFailure("Something went wrong");
 
     EXPECT_FALSE(result.success);
     EXPECT_FALSE(result.value.has_value());
@@ -129,7 +129,7 @@ TEST(Result, SuccessWithComplexType)
     GPXData data;
     data.creator = "Test";
 
-    auto result = Result<GPXData>::Success(std::move(data));
+    auto result = Result<GPXData>::makeSuccess(std::move(data));
 
     EXPECT_TRUE(result.success);
     ASSERT_TRUE(result.value.has_value());

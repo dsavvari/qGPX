@@ -25,15 +25,15 @@ int main()
         return 1;
     }
     char* error = nullptr;
-    const auto handle = gpx_parse(xml.c_str(), &error);
+    const auto handle = gpxParse(xml.c_str(), &error);
     if (!handle)
     {
         std::cerr << "C API parse failed: " << (error ? error : "no error message") << '\n';
         std::free(error);
         return 1;
     }
-    const auto count = gpx_data_get_track_count(handle);
-    gpx_data_free(handle);
+    const auto count = gpxDataGetTrackCount(handle);
+    gpxDataFree(handle);
     if (count != 1)
     {
         std::cerr << "Unexpected C API track count: " << count << '\n';
