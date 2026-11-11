@@ -108,7 +108,7 @@ bool configureServer(httplib::Server& server, const std::string& assetDirectory)
     {
         return false;
     }
-    server.set_payload_max_length(MAX_UPLOAD_BYTES);
+    server.set_payload_max_length(MaxUploadBytes);
     server.set_read_timeout(10, 0);
     server.set_write_timeout(30, 0);
     server.new_task_queue = [] { return new httplib::ThreadPool(2); };

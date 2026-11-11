@@ -224,55 +224,36 @@ static void XMLCALL startElementHandler(void* userData, const char* name, const 
         state->currentSegment.points.emplace_back(lat, lon);
         state->currentPoint = &state->currentSegment.points.back();
     }
-    else if (elementName == "ele")
+    else if (elementName == "ele" || elementName == "time" || elementName == "name" ||
+             elementName == "type" || elementName == "desc")
     {
-        if (state->currentElement() != ParserState::Element::TrackPoint)
+        // These tags also appear in metadata, authors, links and extensions; only the
+        // track and track point ones carry data, anything else is ignored.
+        const auto parent = state->currentElement();
+        if (elementName == "ele" && parent == ParserState::Element::TrackPoint)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Elevation);
         }
-        state->pushElement(ParserState::Element::Elevation);
-    }
-    else if (elementName == "time")
-    {
-        if (state->currentElement() != ParserState::Element::TrackPoint)
+        else if (elementName == "time" && parent == ParserState::Element::TrackPoint)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Time);
         }
-        state->pushElement(ParserState::Element::Time);
-    }
-    else if (elementName == "name")
-    {
-        if (state->currentElement() != ParserState::Element::Track)
+        else if (elementName == "name" && parent == ParserState::Element::Track)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Name);
         }
-        state->pushElement(ParserState::Element::Name);
-    }
-    else if (elementName == "type")
-    {
-        if (state->currentElement() != ParserState::Element::Track)
+        else if (elementName == "type" && parent == ParserState::Element::Track)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Type);
         }
-        state->pushElement(ParserState::Element::Type);
-    }
-    else if (elementName == "desc")
-    {
-        if (state->currentElement() != ParserState::Element::Track)
+        else if (elementName == "desc" && parent == ParserState::Element::Track)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Description);
         }
-        state->pushElement(ParserState::Element::Description);
+        else
+        {
+            state->pushElement(ParserState::Element::None);
+        }
     }
     else
     {
@@ -386,14 +367,14 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
 {
     if (xmlContent.empty())
     {
-        return Result<GPXData>::Failure("XML content is empty");
+        return Result<GPXData>::makeFailure("XML content is empty");
     }
 
     // Create expat parser
     XML_Parser parser = XML_ParserCreate(nullptr);
     if (!parser)
     {
-        return Result<GPXData>::Failure("Failed to create XML parser");
+        return Result<GPXData>::makeFailure("Failed to create XML parser");
     }
 
     // Set up parser state
@@ -411,7 +392,7 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
         if (!state.errorMessage.empty())
         {
             XML_ParserFree(parser);
-            return Result<GPXData>::Failure(state.errorMessage);
+            return Result<GPXData>::makeFailure(state.errorMessage);
         }
 
         std::string errorMsg = "XML parsing error at line ";
@@ -420,7 +401,7 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
         errorMsg += XML_ErrorString(XML_GetErrorCode(parser));
 
         XML_ParserFree(parser);
-        return Result<GPXData>::Failure(errorMsg);
+        return Result<GPXData>::makeFailure(errorMsg);
     }
 
     XML_ParserFree(parser);
@@ -428,10 +409,10 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
     // Validate we got some data
     if (state.gpxData.tracks.empty())
     {
-        return Result<GPXData>::Failure("No tracks found in GPX file");
+        return Result<GPXData>::makeFailure("No tracks found in GPX file");
     }
 
-    return Result<GPXData>::Success(std::move(state.gpxData));
+    return Result<GPXData>::makeSuccess(std::move(state.gpxData));
 }
 
 Result<GPXData> GPXParser::parseFile(const std::string& filePath)
@@ -440,7 +421,7 @@ Result<GPXData> GPXParser::parseFile(const std::string& filePath)
     std::ifstream file(filePath);
     if (!file.is_open())
     {
-        return Result<GPXData>::Failure("Failed to open file: " + filePath);
+        return Result<GPXData>::makeFailure("Failed to open file: " + filePath);
     }
 
     std::stringstream buffer;

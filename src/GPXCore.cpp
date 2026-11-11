@@ -36,7 +36,7 @@ static char* copyString(const std::string& str)
 // MARK: - Parser Functions
 // ============================================================================
 
-GPXDataHandle gpx_parse(const char* xmlContent, char** outError)
+GPXDataHandle gpxParse(const char* xmlContent, char** outError)
 {
     if (!xmlContent)
     {
@@ -67,7 +67,7 @@ GPXDataHandle gpx_parse(const char* xmlContent, char** outError)
     return reinterpret_cast<GPXDataHandle>(new GPXData(std::move(result.value.value())));
 }
 
-void gpx_data_free(GPXDataHandle handle)
+void gpxDataFree(GPXDataHandle handle)
 {
     if (handle)
     {
@@ -79,7 +79,7 @@ void gpx_data_free(GPXDataHandle handle)
 // MARK: - Data Access Functions
 // ============================================================================
 
-uint32_t gpx_data_get_track_count(GPXDataHandle handle)
+uint32_t gpxDataGetTrackCount(GPXDataHandle handle)
 {
     if (!handle)
         return 0;
@@ -87,7 +87,7 @@ uint32_t gpx_data_get_track_count(GPXDataHandle handle)
     return static_cast<uint32_t>(data->tracks.size());
 }
 
-GPXTrackHandle gpx_data_get_track(GPXDataHandle handle, uint32_t index)
+GPXTrackHandle gpxDataGetTrack(GPXDataHandle handle, uint32_t index)
 {
     if (!handle)
         return nullptr;
@@ -97,7 +97,7 @@ GPXTrackHandle gpx_data_get_track(GPXDataHandle handle, uint32_t index)
     return reinterpret_cast<GPXTrackHandle>(&data->tracks[index]);
 }
 
-const char* gpx_data_get_creator(GPXDataHandle handle)
+const char* gpxDataGetCreator(GPXDataHandle handle)
 {
     if (!handle)
         return "";
@@ -107,7 +107,7 @@ const char* gpx_data_get_creator(GPXDataHandle handle)
 
 // ---- Track functions ----
 
-const char* gpx_track_get_name(GPXTrackHandle handle)
+const char* gpxTrackGetName(GPXTrackHandle handle)
 {
     if (!handle)
         return "";
@@ -115,7 +115,7 @@ const char* gpx_track_get_name(GPXTrackHandle handle)
     return track->name.c_str();
 }
 
-const char* gpx_track_get_description(GPXTrackHandle handle)
+const char* gpxTrackGetDescription(GPXTrackHandle handle)
 {
     if (!handle)
         return "";
@@ -123,7 +123,7 @@ const char* gpx_track_get_description(GPXTrackHandle handle)
     return track->description.c_str();
 }
 
-uint32_t gpx_track_get_segment_count(GPXTrackHandle handle)
+uint32_t gpxTrackGetSegmentCount(GPXTrackHandle handle)
 {
     if (!handle)
         return 0;
@@ -131,7 +131,7 @@ uint32_t gpx_track_get_segment_count(GPXTrackHandle handle)
     return static_cast<uint32_t>(track->segments.size());
 }
 
-GPXSegmentHandle gpx_track_get_segment(GPXTrackHandle handle, uint32_t index)
+GPXSegmentHandle gpxTrackGetSegment(GPXTrackHandle handle, uint32_t index)
 {
     if (!handle)
         return nullptr;
@@ -141,7 +141,7 @@ GPXSegmentHandle gpx_track_get_segment(GPXTrackHandle handle, uint32_t index)
     return reinterpret_cast<GPXSegmentHandle>(&track->segments[index]);
 }
 
-double gpx_track_get_total_distance(GPXTrackHandle handle)
+double gpxTrackGetTotalDistance(GPXTrackHandle handle)
 {
     if (!handle)
         return -1.0;
@@ -149,7 +149,7 @@ double gpx_track_get_total_distance(GPXTrackHandle handle)
     return track->totalDistance.value_or(-1.0);
 }
 
-double gpx_track_get_elevation_gain(GPXTrackHandle handle)
+double gpxTrackGetElevationGain(GPXTrackHandle handle)
 {
     if (!handle)
         return -1.0;
@@ -157,7 +157,7 @@ double gpx_track_get_elevation_gain(GPXTrackHandle handle)
     return track->elevationGain.value_or(-1.0);
 }
 
-double gpx_track_get_elevation_loss(GPXTrackHandle handle)
+double gpxTrackGetElevationLoss(GPXTrackHandle handle)
 {
     if (!handle)
         return -1.0;
@@ -165,7 +165,7 @@ double gpx_track_get_elevation_loss(GPXTrackHandle handle)
     return track->elevationLoss.value_or(-1.0);
 }
 
-int64_t gpx_track_get_duration(GPXTrackHandle handle)
+int64_t gpxTrackGetDuration(GPXTrackHandle handle)
 {
     if (!handle)
         return -1;
@@ -177,21 +177,21 @@ int64_t gpx_track_get_duration(GPXTrackHandle handle)
 
 // ---- Segment functions ----
 
-double gpx_track_get_max_speed(GPXTrackHandle handle)
+double gpxTrackGetMaxSpeed(GPXTrackHandle handle)
 {
     if (!handle)
         return -1.0;
     return GPXAnalytics::calculateMaxSpeed(*reinterpret_cast<Track*>(handle)).value_or(-1.0);
 }
 
-double gpx_segment_get_max_speed(GPXSegmentHandle handle)
+double gpxSegmentGetMaxSpeed(GPXSegmentHandle handle)
 {
     if (!handle)
         return -1.0;
     return GPXAnalytics::calculateMaxSpeed(*reinterpret_cast<TrackSegment*>(handle)).value_or(-1.0);
 }
 
-double gpx_segment_get_point_speed(GPXSegmentHandle handle, uint32_t index)
+double gpxSegmentGetPointSpeed(GPXSegmentHandle handle, uint32_t index)
 {
     if (!handle)
         return -1.0;
@@ -201,7 +201,7 @@ double gpx_segment_get_point_speed(GPXSegmentHandle handle, uint32_t index)
     return GPXAnalytics::calculateSpeed(points[index - 1], points[index]).value_or(-1.0);
 }
 
-uint32_t gpx_segment_get_point_count(GPXSegmentHandle handle)
+uint32_t gpxSegmentGetPointCount(GPXSegmentHandle handle)
 {
     if (!handle)
         return 0;
@@ -209,8 +209,8 @@ uint32_t gpx_segment_get_point_count(GPXSegmentHandle handle)
     return static_cast<uint32_t>(segment->points.size());
 }
 
-void gpx_segment_get_point(GPXSegmentHandle handle, uint32_t index, double* outLat, double* outLon,
-                           double* outEle)
+void gpxSegmentGetPoint(GPXSegmentHandle handle, uint32_t index, double* outLat, double* outLon,
+                        double* outEle)
 {
     if (!handle || !outLat || !outLon || !outEle)
         return;
@@ -229,7 +229,7 @@ void gpx_segment_get_point(GPXSegmentHandle handle, uint32_t index, double* outL
 // MARK: - Analytics Functions
 // ============================================================================
 
-void gpx_analyze(GPXDataHandle handle)
+void gpxAnalyze(GPXDataHandle handle)
 {
     if (!handle)
         return;
@@ -237,7 +237,7 @@ void gpx_analyze(GPXDataHandle handle)
     GPXAnalytics::analyzeGPXData(*data);
 }
 
-double gpx_calculate_distance(double lat1, double lon1, double lat2, double lon2)
+double gpxCalculateDistance(double lat1, double lon1, double lat2, double lon2)
 {
     TrackPoint p1(lat1, lon1);
     TrackPoint p2(lat2, lon2);

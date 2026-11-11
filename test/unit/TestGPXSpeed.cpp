@@ -65,22 +65,22 @@ TEST(GPXSpeed, MaximumNeverConnectsSegmentsOrSkipsMissingPoints)
 
 TEST(GPXSpeed, CApiCalculatesWithoutPriorAnalysisAndHandlesInvalidInputs)
 {
-    const auto data = gpx_parse(
+    const auto data = gpxParse(
         R"(<gpx><trk><trkseg><trkpt lat="0" lon="0"><time>2026-03-03T09:00:00Z</time></trkpt>
         <trkpt lat="0.001" lon="0"><time>2026-03-03T09:00:10Z</time></trkpt></trkseg></trk></gpx>)",
         nullptr);
     ASSERT_NE(data, nullptr);
-    const auto track = gpx_data_get_track(data, 0);
-    const auto segment = gpx_track_get_segment(track, 0);
-    EXPECT_NEAR(gpx_track_get_max_speed(track), 11.1194927, 0.00001);
-    EXPECT_DOUBLE_EQ(gpx_segment_get_max_speed(segment), gpx_track_get_max_speed(track));
-    EXPECT_DOUBLE_EQ(gpx_segment_get_point_speed(segment, 1), gpx_track_get_max_speed(track));
-    EXPECT_EQ(gpx_segment_get_point_speed(segment, 0), -1);
-    EXPECT_EQ(gpx_segment_get_point_speed(segment, 2), -1);
-    EXPECT_EQ(gpx_segment_get_point_speed(nullptr, 1), -1);
-    EXPECT_EQ(gpx_segment_get_max_speed(nullptr), -1);
-    EXPECT_EQ(gpx_track_get_max_speed(nullptr), -1);
-    gpx_data_free(data);
+    const auto track = gpxDataGetTrack(data, 0);
+    const auto segment = gpxTrackGetSegment(track, 0);
+    EXPECT_NEAR(gpxTrackGetMaxSpeed(track), 11.1194927, 0.00001);
+    EXPECT_DOUBLE_EQ(gpxSegmentGetMaxSpeed(segment), gpxTrackGetMaxSpeed(track));
+    EXPECT_DOUBLE_EQ(gpxSegmentGetPointSpeed(segment, 1), gpxTrackGetMaxSpeed(track));
+    EXPECT_EQ(gpxSegmentGetPointSpeed(segment, 0), -1);
+    EXPECT_EQ(gpxSegmentGetPointSpeed(segment, 2), -1);
+    EXPECT_EQ(gpxSegmentGetPointSpeed(nullptr, 1), -1);
+    EXPECT_EQ(gpxSegmentGetMaxSpeed(nullptr), -1);
+    EXPECT_EQ(gpxTrackGetMaxSpeed(nullptr), -1);
+    gpxDataFree(data);
 }
 
 } // namespace

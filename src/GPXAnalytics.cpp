@@ -34,7 +34,7 @@ double GPXAnalytics::calculateDistance(const TrackPoint& p1, const TrackPoint& p
 
     double c = 2.0 * std::atan2(std::sqrt(a), std::sqrt(1.0 - a));
 
-    return EARTH_RADIUS_METERS * c;
+    return EarthRadiusMeters * c;
 }
 
 std::optional<double> GPXAnalytics::calculateSpeed(const TrackPoint& p1, const TrackPoint& p2)

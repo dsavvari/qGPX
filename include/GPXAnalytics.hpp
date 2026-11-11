@@ -70,7 +70,7 @@ public:
     static void analyzeGPXData(GPXData& gpxData);
 
 private:
-    static constexpr double EARTH_RADIUS_METERS = 6371000.0;
+    static constexpr double EarthRadiusMeters = 6371000.0;
 
     static double toRadians(double degrees);
 };
