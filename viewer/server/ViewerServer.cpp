@@ -66,11 +66,15 @@ json serialize(core::GPXData& data)
                                point.time->time_since_epoch())
                                .count();
                 }
-                points.push_back({{"latitude", point.latitude},
-                                  {"longitude", point.longitude},
-                                  {"elevationMeters", elevation(point.elevation)},
-                                  {"timeUnixMs", time},
-                                  {"distanceMeters", finite(distance)}});
+                points.push_back(
+                    {{"latitude", point.latitude},
+                     {"longitude", point.longitude},
+                     {"elevationMeters", elevation(point.elevation)},
+                     {"timeUnixMs", time},
+                     {"speedMetersPerSecond", elevation(i > 0 ? core::GPXAnalytics::calculateSpeed(
+                                                                    segment.points[i - 1], point)
+                                                              : std::nullopt)},
+                     {"distanceMeters", finite(distance)}});
             }
             const auto duration = core::GPXAnalytics::calculateDuration(segment);
             segments.push_back(
@@ -78,6 +82,8 @@ json serialize(core::GPXData& data)
                  {"distanceMeters", finite(*segment.totalDistance)},
                  {"elevationGainMeters", elevation(segment.elevationGain)},
                  {"elevationLossMeters", elevation(segment.elevationLoss)},
+                 {"maxSpeedMetersPerSecond",
+                  elevation(core::GPXAnalytics::calculateMaxSpeed(segment))},
                  {"durationSeconds", duration ? json(duration->count()) : json(nullptr)}});
         }
         tracks.push_back(
@@ -87,6 +93,7 @@ json serialize(core::GPXData& data)
              {"distanceMeters", finite(*track.totalDistance)},
              {"elevationGainMeters", elevation(track.elevationGain)},
              {"elevationLossMeters", elevation(track.elevationLoss)},
+             {"maxSpeedMetersPerSecond", elevation(core::GPXAnalytics::calculateMaxSpeed(track))},
              {"durationSeconds", track.duration ? json(track.duration->count()) : json(nullptr)},
              {"segments", segments}});
     }

@@ -71,10 +71,20 @@ extern "C"
     /// Get track's duration (in seconds), or -1 if not calculated
     int64_t gpx_track_get_duration(GPXTrackHandle handle);
 
+    /// Calculate maximum adjacent-point speed in m/s, or -1 if unavailable/invalid handle.
+    double gpx_track_get_max_speed(GPXTrackHandle handle);
+
     // ---- Segment functions ----
 
     /// Get number of points in segment
     uint32_t gpx_segment_get_point_count(GPXSegmentHandle handle);
+
+    /// Calculate maximum adjacent-point speed in m/s, or -1 if unavailable/invalid handle.
+    double gpx_segment_get_max_speed(GPXSegmentHandle handle);
+
+    /// Speed in m/s from the preceding point; -1 for index 0, invalid input,
+    /// missing/non-increasing timestamps, or non-finite measurements.
+    double gpx_segment_get_point_speed(GPXSegmentHandle handle, uint32_t index);
 
     /// Get point coordinates at index
     /// @param outLat Pointer to receive latitude

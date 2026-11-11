@@ -2,6 +2,7 @@
 
 qGPX is a C++17 library for parsing GPX track data and calculating track distance,
 elevation gain and loss, and duration. It provides both a C++ API and a C API.
+It also derives adjacent-point and maximum speed from coordinates and timestamps.
 
 ![qGPX Track lab showing a GPX track on a map, track statistics, and an elevation profile](docs/images/track-lab.png)
 
@@ -100,7 +101,8 @@ requires `clang-format` to be installed.
 ## Optional browser viewer
 
 The [local development viewer](viewer/README.md) provides GPX upload, track and
-segment selection, a map, statistics, and an elevation profile. It uses the C++
+segment selection, a map, statistics, an elevation profile, and 2D replay with
+optional camera follow. It uses the C++
 library through a loopback-only HTTP adapter; the library itself remains
 frontend-independent.
 
@@ -129,8 +131,14 @@ the frontend, and runs the registered tests with CTest.
 - `GPXParser.hpp` parses GPX XML strings and files into the `qGpx::core` data
 	model.
 - `GPXAnalytics.hpp` calculates distance, elevation change, and duration.
+- `GPXAnalytics.hpp` also exposes `calculateSpeed` and `calculateMaxSpeed` in m/s.
+  These use adjacent points within segments and ignore invalid timed intervals;
+  results are unsmoothed estimates and can reflect GPS spikes.
 - `GPXModels.hpp` defines the GPX data, track, segment, point, and result types.
 - `GPXCore.h` exposes the C API.
+  Its speed accessors (`gpx_track_get_max_speed`, `gpx_segment_get_max_speed`,
+  `gpx_segment_get_point_speed`) calculate on demand, without requiring
+  `gpx_analyze`, and return `-1` when unavailable.
 
 ## License
 

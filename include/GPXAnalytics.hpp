@@ -21,6 +21,14 @@ public:
     /// @return Distance in meters
     static double calculateDistance(const TrackPoint& p1, const TrackPoint& p2);
 
+    /// Derived horizontal speed in m/s; unavailable for missing/non-increasing timestamps
+    /// or non-finite measurements. Points must belong to the same segment.
+    static std::optional<double> calculateSpeed(const TrackPoint& p1, const TrackPoint& p2);
+
+    /// Maximum valid adjacent-point speed in m/s, or nullopt when none is available.
+    static std::optional<double> calculateMaxSpeed(const TrackSegment& segment);
+    static std::optional<double> calculateMaxSpeed(const Track& track);
+
     /// Calculate total distance for a track segment
     /// @param segment Track segment
     /// @return Total distance in meters

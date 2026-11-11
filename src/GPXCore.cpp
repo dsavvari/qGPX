@@ -171,6 +171,30 @@ int64_t gpx_track_get_duration(GPXTrackHandle handle)
 
 // ---- Segment functions ----
 
+double gpx_track_get_max_speed(GPXTrackHandle handle)
+{
+    if (!handle)
+        return -1.0;
+    return GPXAnalytics::calculateMaxSpeed(*reinterpret_cast<Track*>(handle)).value_or(-1.0);
+}
+
+double gpx_segment_get_max_speed(GPXSegmentHandle handle)
+{
+    if (!handle)
+        return -1.0;
+    return GPXAnalytics::calculateMaxSpeed(*reinterpret_cast<TrackSegment*>(handle)).value_or(-1.0);
+}
+
+double gpx_segment_get_point_speed(GPXSegmentHandle handle, uint32_t index)
+{
+    if (!handle)
+        return -1.0;
+    const auto& points = reinterpret_cast<TrackSegment*>(handle)->points;
+    if (index == 0 || index >= points.size())
+        return -1.0;
+    return GPXAnalytics::calculateSpeed(points[index - 1], points[index]).value_or(-1.0);
+}
+
 uint32_t gpx_segment_get_point_count(GPXSegmentHandle handle)
 {
     if (!handle)

@@ -4,11 +4,11 @@ import { coverage, elevationRuns, formatDuration } from "../src/model.ts";
 import type { Segment, TrackPoint } from "../src/model.ts";
 
 function point(distance: number, elevation: number | null): TrackPoint {
-  return { latitude: 0, longitude: 0, distanceMeters: distance, elevationMeters: elevation, timeUnixMs: null };
+  return { latitude: 0, longitude: 0, distanceMeters: distance, elevationMeters: elevation, timeUnixMs: null, speedMetersPerSecond: null };
 }
 
 function segment(points: TrackPoint[]): Segment {
-  return { points, distanceMeters: 0, elevationGainMeters: 0, elevationLossMeters: 0, durationSeconds: null };
+  return { points, distanceMeters: 0, elevationGainMeters: 0, elevationLossMeters: 0, durationSeconds: null, maxSpeedMetersPerSecond: null };
 }
 
 test("profile preserves segment and missing-elevation gaps", () => {

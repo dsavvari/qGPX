@@ -14,6 +14,7 @@ import "ol/ol.css";
 import "./style.css";
 import { coverage, elevationRuns, formatDuration } from "./model.ts";
 import type { Analysis, Measurements, Segment } from "./model.ts";
+import { createReplay, replayPosition } from "./replay.ts";
 
 function element<T extends Element>(id: string, type: new () => T): T {
   const value = document.getElementById(id);
@@ -34,6 +35,22 @@ const fitButton = element("fit", HTMLButtonElement);
 const basemap = element("basemap", HTMLInputElement);
 const dropZone = element("drop-zone", HTMLElement);
 const profile = element("profile", SVGSVGElement);
+const playButton = element("play", HTMLButtonElement);
+const restartButton = element("restart", HTMLButtonElement);
+const replaySpeed = element("replay-speed", HTMLSelectElement);
+const follow = element("follow", HTMLInputElement);
+const timeline = element("timeline", HTMLInputElement);
+const replayMode = element("replay-mode", HTMLParagraphElement);
+const replayReadout = element("replay-readout", HTMLOutputElement);
+const replayMarker = new Feature(new Point([0, 0]));
+const replaySource = new VectorSource({ features: [replayMarker], wrapX: false });
+replayMarker.setStyle(new Style({
+  image: new Circle({
+    radius: 7,
+    fill: new Fill({ color: "#e56b36" }),
+    stroke: new Stroke({ color: "#fff", width: 3 }),
+  }),
+}));
 
 const source = new VectorSource<Feature<LineString | Point>>({ wrapX: false });
 const baseLayer = new TileLayer<OSM>({ visible: false });
@@ -52,6 +69,7 @@ const map = new Map({
         }),
       }),
     }),
+    new VectorLayer({ source: replaySource }),
   ],
   view: new View({ center: fromLonLat([0, 25]), zoom: 2 }),
 });
@@ -59,6 +77,89 @@ const map = new Map({
 let analysis: Analysis | null = null;
 let loading = false;
 let filename = "";
+let replay = createReplay([]);
+let elapsed = 0;
+let playing = false;
+let frame = 0;
+let lastFrame = 0;
+let playbackRate = Number(replaySpeed.value);
+let profileDistance = 0;
+let profileOffset = 0;
+const profileCursor = svgElement("line", {
+  x1: "65", x2: "65", y1: "15", y2: "150", class: "replay-cursor",
+});
+replaySource.clear();
+
+function updateReplayControls() {
+  const playable = !loading && replay.duration > 0;
+  playButton.disabled = !playable;
+  restartButton.disabled = !playable;
+  timeline.disabled = !playable;
+  replaySpeed.disabled = !playable;
+  follow.disabled = loading || replay.samples.length === 0;
+  playButton.textContent = playing ? "Pause" : "Play";
+  playButton.setAttribute("aria-pressed", String(playing));
+}
+
+function pauseReplay() {
+  playing = false;
+  cancelAnimationFrame(frame);
+  updateReplayControls();
+}
+
+function renderReplayPosition() {
+  const position = replayPosition(replay, elapsed);
+  if (!position) return;
+  const coordinates = fromLonLat([
+    position.longitude, Math.max(-85.05112878, Math.min(85.05112878, position.latitude)),
+  ]);
+  replayMarker.getGeometry()?.setCoordinates(coordinates);
+  if (follow.checked) map.getView().setCenter(coordinates);
+  timeline.value = String(elapsed);
+  const distance = position.distanceMeters - profileOffset;
+  const x = 65 + distance / (profileDistance || 1) * 810;
+  profileCursor.setAttribute("x1", String(x));
+  profileCursor.setAttribute("x2", String(x));
+  const elevation = position.elevationMeters === null ? "elevation unavailable" :
+    `${position.elevationMeters.toFixed(0)} m elevation`;
+  const speed = position.speedMetersPerSecond === null ? "speed unavailable" :
+    `${(position.speedMetersPerSecond * 3.6).toFixed(1)} km/h (derived)`;
+  replayReadout.textContent =
+    `${formatDuration(Math.floor(elapsed))} / ${formatDuration(Math.floor(replay.duration))}` +
+    ` | ${(distance / 1000).toFixed(2)} km | ${elevation} | ${speed}` +
+    (position.inGap ? " | Segment gap: waiting, then jumping to the next segment." : "");
+  timeline.setAttribute("aria-valuetext", replayReadout.textContent);
+}
+
+function advanceReplay(now: number) {
+  elapsed = Math.min(replay.duration, elapsed + (now - lastFrame) / 1000 * playbackRate);
+  lastFrame = now;
+  renderReplayPosition();
+  if (elapsed >= replay.duration) pauseReplay();
+}
+
+function animateReplay(now: number) {
+  if (!playing) return;
+  advanceReplay(now);
+  if (playing) frame = requestAnimationFrame(animateReplay);
+}
+
+function resetReplay(segments: Segment[]) {
+  pauseReplay();
+  replay = createReplay(segments);
+  elapsed = 0;
+  timeline.max = String(replay.duration);
+  timeline.value = "0";
+  replaySource.clear();
+  if (replay.samples.length) replaySource.addFeature(replayMarker);
+  replayMode.textContent = replay.duration === 0 ?
+    "No replay interval in this selection (single point or zero-distance preview)." :
+    replay.recorded ?
+      "Recorded timing. Segment gaps hold the last position, then jump." :
+      "Constant-speed preview at 5 m/s: timestamps are missing, repeated, or out of order. Segment gaps jump instantly; this is not recorded timing.";
+  updateReplayControls();
+  renderReplayPosition();
+}
 
 function fitTrack() {
   const extent = source.getExtent();
@@ -86,6 +187,8 @@ function renderProfile(segments: Segment[]) {
   const firstDistance = segments[0]?.points[0]?.distanceMeters ?? 0;
   const lastSegment = segments.at(-1);
   const maxDistance = (lastSegment?.points.at(-1)?.distanceMeters ?? firstDistance) - firstDistance;
+  profileOffset = firstDistance;
+  profileDistance = maxDistance;
   for (const run of runs) {
     for (const point of run) {
       min = Math.min(min, point.elevation);
@@ -121,6 +224,7 @@ function renderProfile(segments: Segment[]) {
     }
   }
   profileNote.textContent = "Gaps are preserved between segments and where elevation is missing.";
+  profile.append(profileCursor);
 }
 
 function renderStats(measurements: Measurements, segments: Segment[]) {
@@ -131,6 +235,8 @@ function renderStats(measurements: Measurements, segments: Segment[]) {
     ["Elevation gain", data.elevationPairs ? meters(measurements.elevationGainMeters) : "Unavailable"],
     ["Elevation loss", data.elevationPairs ? meters(measurements.elevationLossMeters) : "Unavailable"],
     ["Duration", formatDuration(measurements.durationSeconds)],
+    ["Max speed (derived)", measurements.maxSpeedMetersPerSecond === null ? "Unavailable" :
+      `${(measurements.maxSpeedMetersPerSecond * 3.6).toFixed(1)} km/h`],
     ["Segments / points", `${segments.length} / ${data.points.toLocaleString()}`],
     ["Elevation samples", `${data.elevations.toLocaleString()} / ${data.points.toLocaleString()}`],
     ["Timestamp samples", `${data.timestamps.toLocaleString()} / ${data.points.toLocaleString()}`],
@@ -145,7 +251,7 @@ function renderStats(measurements: Measurements, segments: Segment[]) {
   }
   const note = document.createElement("p");
   note.className = "measurement-note";
-  note.textContent = "Gain/loss use adjacent available elevations. Duration spans the first and last available timestamps, including segment gaps; it is not moving time.";
+  note.textContent = "Gain/loss use adjacent available elevations. Duration spans the first and last available timestamps, including segment gaps; it is not moving time. Speed is derived from adjacent timed points within segments, without smoothing; GPS spikes can inflate the maximum.";
   stats.after(note);
 }
 
@@ -173,6 +279,7 @@ function renderSelection() {
   renderProfile(segments);
   mapNote.textContent = "Geometry from the C++ parser. Segment breaks are not connected. Polar latitudes are clipped to the basemap's Mercator limits.";
   fitTrack();
+  resetReplay(segments);
 }
 
 function selectTrack() {
@@ -186,11 +293,13 @@ function selectTrack() {
 }
 
 function setLoading(value: boolean) {
+  if (value) pauseReplay();
   loading = value;
   fileInput.disabled = value;
   trackSelect.disabled = value || analysis === null;
   segmentSelect.disabled = value || analysis === null;
   dropZone.setAttribute("aria-busy", String(value));
+  updateReplayControls();
 }
 
 async function loadFile(file: File) {
@@ -259,7 +368,43 @@ dropZone.addEventListener("drop", (event) => {
 });
 trackSelect.addEventListener("change", selectTrack);
 segmentSelect.addEventListener("change", renderSelection);
-fitButton.addEventListener("click", fitTrack);
+fitButton.addEventListener("click", () => {
+  follow.checked = false;
+  fitTrack();
+});
+playButton.addEventListener("click", () => {
+  if (playing) {
+    advanceReplay(performance.now());
+    pauseReplay();
+    return;
+  }
+  if (replay.duration <= 0 || loading) return;
+  if (elapsed >= replay.duration) elapsed = 0;
+  playing = true;
+  lastFrame = performance.now();
+  renderReplayPosition();
+  updateReplayControls();
+  frame = requestAnimationFrame(animateReplay);
+});
+restartButton.addEventListener("click", () => {
+  pauseReplay();
+  elapsed = 0;
+  renderReplayPosition();
+});
+timeline.addEventListener("input", () => {
+  pauseReplay();
+  elapsed = Number(timeline.value);
+  renderReplayPosition();
+});
+replaySpeed.addEventListener("change", () => {
+  if (playing) advanceReplay(performance.now());
+  playbackRate = Number(replaySpeed.value);
+});
+follow.addEventListener("change", renderReplayPosition);
+map.on("pointerdrag", () => { follow.checked = false; });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pauseReplay();
+});
 basemap.addEventListener("change", () => {
   if (basemap.checked && !baseLayer.getSource()) {
     const tiles = new OSM();

@@ -72,15 +72,23 @@ TEST_F(ViewerTest, AnalyzesTracksWithoutConnectingSegments)
     EXPECT_EQ(first["latitude"], 38);
     EXPECT_EQ(first["longitude"], 23);
     EXPECT_EQ(first["elevationMeters"], 100);
+    EXPECT_TRUE(first["speedMetersPerSecond"].is_null());
     EXPECT_EQ(first["timeUnixMs"], 1772528400000LL);
     EXPECT_EQ(track["segments"][0]["durationSeconds"], 60);
     const auto distance = track["distanceMeters"].get<double>();
     EXPECT_GT(distance, 110);
     EXPECT_LT(distance, 112);
+    EXPECT_NEAR(track["maxSpeedMetersPerSecond"].get<double>(), distance / 60, 1e-10);
+    EXPECT_EQ(track["segments"][0]["maxSpeedMetersPerSecond"], track["maxSpeedMetersPerSecond"]);
+    EXPECT_EQ(track["segments"][0]["points"][1]["speedMetersPerSecond"],
+              track["maxSpeedMetersPerSecond"]);
     const auto& point = track["segments"][1]["points"][0];
     EXPECT_DOUBLE_EQ(point["distanceMeters"].get<double>(), distance);
     EXPECT_TRUE(point["elevationMeters"].is_null());
     EXPECT_TRUE(point["timeUnixMs"].is_null());
+    EXPECT_TRUE(point["speedMetersPerSecond"].is_null());
+    EXPECT_TRUE(track["segments"][1]["maxSpeedMetersPerSecond"].is_null());
+    EXPECT_TRUE(body["tracks"][1]["maxSpeedMetersPerSecond"].is_null());
     EXPECT_EQ(body["tracks"][1]["distanceMeters"], 0);
     EXPECT_TRUE(body["tracks"][1]["durationSeconds"].is_null());
 }

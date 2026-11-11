@@ -36,6 +36,25 @@
           <div class="panel-heading"><h2>Route</h2><button id="fit" disabled>Fit track</button></div>
           <div id="map" tabindex="0" aria-label="Interactive track map"></div>
           <p id="map-note">Load a track to explore its geometry. A basemap is optional.</p>
+          <section class="replay" aria-label="Track replay">
+            <div class="replay-toolbar">
+              <button id="play" disabled>Play</button>
+              <button id="restart" disabled>Restart</button>
+              <label for="replay-speed">Playback speed</label>
+              <select id="replay-speed" disabled>
+                <option value="1">1x</option>
+                <option value="5">5x</option>
+                <option value="10" selected>10x</option>
+                <option value="30">30x</option>
+                <option value="60">60x</option>
+              </select>
+              <label><input id="follow" type="checkbox" disabled /> Follow camera</label>
+            </div>
+            <label for="timeline">Replay timeline</label>
+            <input id="timeline" type="range" min="0" max="0" step="any" value="0" disabled />
+            <p id="replay-mode">Load a track to replay it.</p>
+            <output id="replay-readout" for="timeline" aria-live="off">No replay position.</output>
+          </section>
         </section>
         <section class="profile-panel">
           <div class="panel-heading"><h2>Elevation profile</h2><span>metres / distance in km</span></div>

@@ -43,6 +43,14 @@ a { color: #087f8c; }
 .grid { stroke: #e3edef; stroke-width: 1; }
 .elevation-line { fill: none; stroke: #087f8c; stroke-width: 2; stroke-linejoin: round; }
 .elevation-point { fill: #087f8c; }
+.replay { padding: 14px 20px; border-top: 1px solid #e1eaee; font-size: 12px; }
+.replay-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+.replay-toolbar select { width: auto; }
+.replay-toolbar label { display: inline-flex; align-items: center; gap: 5px; }
+#timeline { display: block; width: 100%; margin: 10px 0; accent-color: #087f8c; }
+#replay-mode { color: #526e7c; font-size: 11px; }
+#replay-readout { display: block; font-variant-numeric: tabular-nums; line-height: 1.6; overflow-wrap: anywhere; }
+.replay-cursor { stroke: #e56b36; stroke-width: 2; stroke-dasharray: 4 3; }
 @media (max-width: 850px) {
   main { grid-template-columns: 260px minmax(0, 1fr); }
   aside, .workspace { padding: 16px; }

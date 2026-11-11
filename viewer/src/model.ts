@@ -4,9 +4,11 @@ export interface TrackPoint {
   elevationMeters: number | null;
   timeUnixMs: number | null;
   distanceMeters: number;
+  speedMetersPerSecond: number | null;
 }
 
 export interface Measurements {
+  maxSpeedMetersPerSecond: number | null;
   distanceMeters: number;
   elevationGainMeters: number | null;
   elevationLossMeters: number | null;
