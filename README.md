@@ -115,6 +115,11 @@ cmake --build build --parallel
 ```
 
 Requires Node.js 24 or newer in addition to the core build dependencies.
+The frontend must be built first: `qgpx-viewer` serves `viewer/dist` and exits with
+`Frontend not found in .../viewer/dist` if it is missing. `viewer/dist` is generated
+and git-ignored, so run `npm --prefix viewer ci && npm --prefix viewer run build`
+(also after changing the UI source), or pass another directory with
+`./build/qgpx-viewer <port> <dist-dir>`.
 Open <http://127.0.0.1:8080>. The optional external basemap is disabled by default.
 `BUILD_VIEWER` defaults to `OFF`; core-only consumers do not need Node or the
 viewer dependencies. See [third-party licenses](third_party/README.md) for

@@ -381,3 +381,38 @@ TEST(GPXParser, IgnoresUnknownNamespaces)
     ASSERT_TRUE(result.success);
     EXPECT_EQ(result.value.value().tracks[0].segments[0].pointCount(), 1);
 }
+
+TEST(GPXParser, IgnoresDataTagsOutsideTracks)
+{
+    GPXParser parser;
+    const char* gpx = R"(<?xml version="1.0"?>
+<gpx version="1.1" creator="test">
+  <metadata>
+    <name>Ignored name</name>
+    <desc>Ignored description</desc>
+    <author><name>Someone</name></author>
+    <link href="example.com"><text>Link</text></link>
+    <time>2026-03-03T09:51:09.000Z</time>
+  </metadata>
+  <wpt lat="1.0" lon="2.0"><name>Waypoint</name><ele>5</ele><time>2026-03-03T09:51:09Z</time></wpt>
+  <trk>
+    <name>Real name</name>
+    <extensions><name>Extension name</name></extensions>
+    <trkseg>
+      <trkpt lat="45.0" lon="6.0">
+        <ele>10</ele>
+        <extensions><name>Point extension</name><time>invalid</time></extensions>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    ASSERT_TRUE(result.success) << result.errorMessage;
+    const auto& track = result.value.value().tracks[0];
+    EXPECT_EQ(track.name, "Real name");
+    ASSERT_EQ(track.segments[0].pointCount(), 1);
+    EXPECT_DOUBLE_EQ(track.segments[0].points[0].elevation.value(), 10.0);
+    EXPECT_FALSE(track.segments[0].points[0].time.has_value());
+}

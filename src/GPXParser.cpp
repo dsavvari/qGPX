@@ -224,55 +224,36 @@ static void XMLCALL startElementHandler(void* userData, const char* name, const 
         state->currentSegment.points.emplace_back(lat, lon);
         state->currentPoint = &state->currentSegment.points.back();
     }
-    else if (elementName == "ele")
+    else if (elementName == "ele" || elementName == "time" || elementName == "name" ||
+             elementName == "type" || elementName == "desc")
     {
-        if (state->currentElement() != ParserState::Element::TrackPoint)
+        // These tags also appear in metadata, authors, links and extensions; only the
+        // track and track point ones carry data, anything else is ignored.
+        const auto parent = state->currentElement();
+        if (elementName == "ele" && parent == ParserState::Element::TrackPoint)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Elevation);
         }
-        state->pushElement(ParserState::Element::Elevation);
-    }
-    else if (elementName == "time")
-    {
-        if (state->currentElement() != ParserState::Element::TrackPoint)
+        else if (elementName == "time" && parent == ParserState::Element::TrackPoint)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Time);
         }
-        state->pushElement(ParserState::Element::Time);
-    }
-    else if (elementName == "name")
-    {
-        if (state->currentElement() != ParserState::Element::Track)
+        else if (elementName == "name" && parent == ParserState::Element::Track)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Name);
         }
-        state->pushElement(ParserState::Element::Name);
-    }
-    else if (elementName == "type")
-    {
-        if (state->currentElement() != ParserState::Element::Track)
+        else if (elementName == "type" && parent == ParserState::Element::Track)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Type);
         }
-        state->pushElement(ParserState::Element::Type);
-    }
-    else if (elementName == "desc")
-    {
-        if (state->currentElement() != ParserState::Element::Track)
+        else if (elementName == "desc" && parent == ParserState::Element::Track)
         {
-            state->currentPoint = nullptr;
-            stopWithError(state, "Malformed GPX nesting");
-            return;
+            state->pushElement(ParserState::Element::Description);
         }
-        state->pushElement(ParserState::Element::Description);
+        else
+        {
+            state->pushElement(ParserState::Element::None);
+        }
     }
     else
     {
