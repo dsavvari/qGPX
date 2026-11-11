@@ -22,7 +22,7 @@ jobs:
         run: cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_VIEWER=ON
 
       - name: Check formatting
-        run: clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp src/viewer/*.cpp src/viewer/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp
+        run: clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
 
       - uses: actions/setup-node@v4
         with:
@@ -41,3 +41,15 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+      - name: Verify standalone library consumers
+        run: |
+          cmake -S . -B build/core -DBUILD_TESTS=OFF -DBUILD_VIEWER=OFF
+          cmake --build build/core --parallel 2
+          cmake --install build/core --prefix "$PWD/build/install"
+          cmake -S test/integration -B build/installed-consumer -DCMAKE_PREFIX_PATH="$PWD/build/install"
+          cmake --build build/installed-consumer --parallel 2
+          ctest --test-dir build/installed-consumer --output-on-failure
+          cmake -S test/integration -B build/source-consumer -DQGPX_SOURCE_DIR="$PWD"
+          cmake --build build/source-consumer --parallel 2
+          ctest --test-dir build/source-consumer --output-on-failure

@@ -1,14 +1,20 @@
 find_package(Threads REQUIRED)
 
-add_library(qgpx_viewer_server STATIC ViewerServer.cpp)
-target_include_directories(qgpx_viewer_server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(qgpx_viewer_server STATIC server/ViewerServer.cpp)
+target_include_directories(qgpx_viewer_server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/server)
 target_include_directories(qgpx_viewer_server SYSTEM PUBLIC
     ${PROJECT_SOURCE_DIR}/third_party/cpp-httplib
     ${PROJECT_SOURCE_DIR}/third_party/nlohmann-json
 )
-target_link_libraries(qgpx_viewer_server PUBLIC qGPX Threads::Threads)
+target_link_libraries(qgpx_viewer_server PUBLIC qGPX::qGPX Threads::Threads)
+set_target_properties(qgpx_viewer_server PROPERTIES CXX_EXTENSIONS OFF)
+if(MSVC)
+    target_compile_options(qgpx_viewer_server PRIVATE /W4)
+else()
+    target_compile_options(qgpx_viewer_server PRIVATE -Wall -Wextra -Wpedantic)
+endif()
 
-add_executable(qgpx-viewer main.cpp)
+add_executable(qgpx-viewer server/main.cpp)
 target_link_libraries(qgpx-viewer PRIVATE qgpx_viewer_server)
 set_target_properties(qgpx-viewer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 target_compile_definitions(qgpx-viewer PRIVATE

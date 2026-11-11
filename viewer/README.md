@@ -2,7 +2,10 @@
 
 An optional development UI, not a hosted service. The browser uploads GPX to a
 loopback-only C++ server, which uses the real qGPX parser and analytics. HTTP and
-JSON code live in `src/viewer/`; this frontend contains no GPX parser.
+JSON code and the application's `main()` live in `viewer/server/`, separate from
+the reusable core in `src/`. This frontend contains no GPX parser.
+The viewer links `qGPX::qGPX`; the core never links the viewer or HTTP adapter.
+With `BUILD_VIEWER=OFF`, none of the HTTP/application sources are compiled.
 
 ## Build and run
 
@@ -116,7 +119,7 @@ stability guarantee for future public services.
 npm --prefix viewer test
 npm --prefix viewer run build
 ctest --test-dir build -R '^ViewerTest\.' --output-on-failure
-clang-format --dry-run --Werror src/viewer/*.cpp src/viewer/*.hpp test/viewer/*.cpp
+clang-format --dry-run --Werror viewer/server/*.cpp viewer/server/*.hpp test/viewer/*.cpp
 ```
 
 See [third-party dependencies](../third_party/README.md). Every production

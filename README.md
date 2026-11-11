@@ -23,12 +23,50 @@ cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
-To build the library without tests:
+To build only the reusable library, without tests, HTTP code, or UI:
 
 ```sh
-cmake -S . -B build -DBUILD_TESTS=OFF
+cmake -S . -B build -DBUILD_TESTS=OFF -DBUILD_VIEWER=OFF
 cmake --build build --parallel
 ```
+
+The `qGPX` target contains only the parser, analytics, and C API. The optional
+`qgpx-viewer` executable owns `main()` and links the library through a separate
+HTTP adapter. All viewer source lives under `viewer/`, not `src/`.
+
+## Integrating the library
+
+Install the core library and its CMake package:
+
+```sh
+cmake -S . -B build/core -DBUILD_TESTS=OFF -DBUILD_VIEWER=OFF
+cmake --build build/core --parallel
+cmake --install build/core --prefix /path/to/qgpx-install
+```
+
+In another project's `CMakeLists.txt`:
+
+```cmake
+find_package(qGPX 1 CONFIG REQUIRED)
+target_link_libraries(my_app PRIVATE qGPX::qGPX)
+```
+
+Configure that project with `-DCMAKE_PREFIX_PATH=/path/to/qgpx-install`.
+The imported target supplies the public header path, C++17 requirement, and
+Expat link dependency. Expat must also be available on the consuming system.
+Use public headers such as `#include <GPXParser.hpp>` or `#include <GPXCore.h>`.
+No viewer, HTTP, JSON, Node, or GoogleTest dependency is installed with the core.
+
+Alternatively, include the source checkout directly:
+
+```cmake
+add_subdirectory(path/to/qGPX)
+target_link_libraries(my_app PRIVATE qGPX::qGPX)
+```
+
+Tests default to off when qGPX is a subdirectory; the viewer always defaults to
+off. Explicit `BUILD_TESTS` and `BUILD_VIEWER` settings override these defaults.
+The [integration fixture](test/integration/) exercises both consumption methods.
 
 ## Code formatting
 
@@ -37,13 +75,13 @@ maintained C++ files. The commands below cover the public headers, implementatio
 and tests:
 
 ```sh
-clang-format -i include/*.h include/*.hpp src/*.cpp src/viewer/*.cpp src/viewer/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp
+clang-format -i include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
 ```
 
 Check formatting without changing files:
 
 ```sh
-clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp src/viewer/*.cpp src/viewer/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp
+clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
 ```
 
 Formatting is checked in CI, but is not part of the CMake build or configured to
