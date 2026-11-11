@@ -138,7 +138,7 @@ TEST_F(ViewerTest, RejectsCrossOriginAndForeignHost)
 TEST_F(ViewerTest, EnforcesExactUploadLimit)
 {
     std::string xml = GPX;
-    xml.append(qGpx::viewer::maxUploadBytes - xml.size(), ' ');
+    xml.append(qGpx::viewer::MaxUploadBytes - xml.size(), ' ');
     auto result = client->Post("/api/analyze", xml, "application/gpx+xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 200);

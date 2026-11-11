@@ -9,7 +9,7 @@
 ## Changes and validation
 
 - Keep changes focused and follow the existing C++17 style and APIs.
-- Use camelCase for functions, variables, and constants (including the C API in `GPXCore.h`, e.g. `gpxParse`); types and enum values stay PascalCase.
+- Use camelCase for functions and variables (including the C API in `GPXCore.h`, e.g. `gpxParse`); constants, types, and enum values use PascalCase (first character uppercase).
 - Add or update tests in the relevant `test/` directory when behavior changes.
 - Use the repository's `.clang-format` rules. Check formatting with:
 
