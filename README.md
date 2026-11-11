@@ -48,7 +48,7 @@ cmake --install build/core --prefix /path/to/qgpx-install
 In another project's `CMakeLists.txt`:
 
 ```cmake
-find_package(qGPX 1 CONFIG REQUIRED)
+find_package(qGPX 0.1 CONFIG REQUIRED)
 target_link_libraries(my_app PRIVATE qGPX::qGPX)
 ```
 
