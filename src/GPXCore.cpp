@@ -11,6 +11,7 @@
 #include "GPXParser.hpp"
 
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 using namespace qGpx::core;
@@ -21,8 +22,13 @@ using namespace qGpx::core;
 
 static char* copyString(const std::string& str)
 {
-    char* result = new char[str.length() + 1];
-    std::strcpy(result, str.c_str());
+    const size_t length = str.length() + 1;
+    char* result = static_cast<char*>(std::malloc(length));
+    if (!result)
+    {
+        return nullptr;
+    }
+    std::memcpy(result, str.c_str(), length);
     return result;
 }
 
