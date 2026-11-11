@@ -1,20 +1,21 @@
 {
   "name": "qgpx-viewer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=24"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc --noEmit && vite build",
-    "test": "node --experimental-strip-types --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
     "ol": "^10.7.0"
   },
   "devDependencies": {
+    "tsx": "^4.19.5",
     "typescript": "^7.0.2",
     "vite": "^7.2.2"
   }

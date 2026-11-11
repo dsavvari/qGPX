@@ -48,7 +48,7 @@ cmake --install build/core --prefix /path/to/qgpx-install
 In another project's `CMakeLists.txt`:
 
 ```cmake
-find_package(qGPX 0.1 CONFIG REQUIRED)
+find_package(qGPX 0.2 CONFIG REQUIRED)
 target_link_libraries(my_app PRIVATE qGPX::qGPX)
 ```
 
@@ -126,6 +126,10 @@ viewer dependencies. See [third-party licenses](third_party/README.md) for
 dependency sources and notices.
 
 
+
+## Releasing
+
+See the [release guide](docs/RELEASING.md) for versioning, tagging, and publishing.
 
 ## License
 

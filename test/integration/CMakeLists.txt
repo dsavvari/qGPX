@@ -4,7 +4,7 @@ project(qGPXConsumer LANGUAGES CXX)
 if(QGPX_SOURCE_DIR)
     add_subdirectory("${QGPX_SOURCE_DIR}" qgpx)
 else()
-    find_package(qGPX 0.1 CONFIG REQUIRED)
+    find_package(qGPX 0.2 CONFIG REQUIRED)
 endif()
 
 if(TARGET qgpx-viewer OR TARGET qgpx_viewer_server OR TARGET unit_tests)
