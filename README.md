@@ -3,6 +3,8 @@
 qGPX is a C++17 library for parsing GPX track data and calculating track distance,
 elevation gain and loss, and duration. It provides both a C++ API and a C API.
 
+![qGPX Track lab showing a GPX track on a map, track statistics, and an elevation profile](docs/images/track-lab.png)
+
 ## Dependencies
 
 - CMake 3.20 or newer
