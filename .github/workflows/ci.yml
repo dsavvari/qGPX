@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format libexpat1-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends --fix-missing clang-format libexpat1-dev || (sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format libexpat1-dev)
 
       - name: Configure
         run: cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_VIEWER=ON
