@@ -1,6 +1,8 @@
 # CMake build output
 /build/
 /cmake-build-*/
+/viewer/node_modules/
+/viewer/dist/
 
 # macOS metadata
 .DS_Store

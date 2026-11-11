@@ -31,6 +31,7 @@ target_link_libraries(qGPX PUBLIC EXPAT::EXPAT)
 # Unit Tests with Google Test
 
 option(BUILD_TESTS "Build tests" ON)
+option(BUILD_VIEWER "Build the local browser-based GPX viewer" OFF)
 
 if(BUILD_TESTS)
     enable_testing()
@@ -60,6 +61,10 @@ if(BUILD_TESTS)
     target_link_libraries(test_elevation PRIVATE qGPX)
 endif()
 
+if(BUILD_VIEWER)
+    add_subdirectory(src/viewer)
+endif()
+
 install(TARGETS qGPX
     ARCHIVE DESTINATION lib
 )
@@ -79,4 +84,5 @@ message(STATUS "qGPX C++ Core Configuration:")
 message(STATUS "  Version:      ${PROJECT_VERSION}")
 message(STATUS "  C++ Standard: C++${CMAKE_CXX_STANDARD}")
 message(STATUS "  Build Tests:  ${BUILD_TESTS}")
+message(STATUS "  Build Viewer: ${BUILD_VIEWER}")
 message(STATUS "")

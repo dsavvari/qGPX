@@ -35,13 +35,13 @@ maintained C++ files. The commands below cover the public headers, implementatio
 and tests:
 
 ```sh
-clang-format -i include/*.h include/*.hpp src/*.cpp test/*.cpp test/unit/*.cpp
+clang-format -i include/*.h include/*.hpp src/*.cpp src/viewer/*.cpp src/viewer/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp
 ```
 
 Check formatting without changing files:
 
 ```sh
-clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp test/*.cpp test/unit/*.cpp
+clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp src/viewer/*.cpp src/viewer/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp
 ```
 
 Formatting is checked in CI, but is not part of the CMake build or configured to
@@ -57,10 +57,32 @@ git config core.hooksPath .githooks
 The hook checks staged C++ files and blocks commits with formatting issues. It
 requires `clang-format` to be installed.
 
+## Optional browser viewer
+
+The [local development viewer](viewer/README.md) provides GPX upload, track and
+segment selection, a map, statistics, and an elevation profile. It uses the C++
+library through a loopback-only HTTP adapter; the library itself remains
+frontend-independent.
+
+```sh
+npm --prefix viewer ci
+npm --prefix viewer run build
+cmake -S . -B build -DBUILD_VIEWER=ON
+cmake --build build --parallel
+./build/qgpx-viewer
+```
+
+Requires Node.js 24 or newer in addition to the core build dependencies.
+Open <http://127.0.0.1:8080>. The optional external basemap is disabled by default.
+`BUILD_VIEWER` defaults to `OFF`; core-only consumers do not need Node or the
+viewer dependencies. See [third-party licenses](third_party/README.md) for
+dependency sources and notices.
+
 ## Continuous integration
 
 GitHub Actions runs on pushes and pull requests targeting `main`. It configures and
-builds the project, checks C++ formatting, and runs the registered tests with CTest.
+builds the project with the optional viewer, checks C++ formatting, builds and tests
+the frontend, and runs the registered tests with CTest.
 
 ## Public headers
 

@@ -19,10 +19,22 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-format libexpat1-dev
 
       - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTS=ON
+        run: cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_VIEWER=ON
 
       - name: Check formatting
-        run: clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp test/*.cpp test/unit/*.cpp
+        run: clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp src/viewer/*.cpp src/viewer/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+
+      - name: Build and test frontend
+        run: |
+          npm --prefix viewer ci
+          npm --prefix viewer run build
+          npm --prefix viewer test
 
       - name: Build
         run: cmake --build build --parallel 2
