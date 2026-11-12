@@ -9,6 +9,7 @@
 #include "GPXAnalytics.hpp"
 #include "GPXModels.hpp"
 #include "GPXParser.hpp"
+#include "GPXWriter.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -75,6 +76,56 @@ void gpxDataFree(GPXDataHandle handle)
     }
 }
 
+GPXDataHandle gpxParseFile(const char* filePath, char** outError)
+{
+    GPXParser parser;
+    auto result =
+        filePath ? parser.parseFile(filePath) : Result<GPXData>::makeFailure("File path is null");
+    if (outError)
+    {
+        *outError = result.success ? nullptr : copyString(result.errorMessage);
+    }
+    if (!result.success)
+    {
+        return nullptr;
+    }
+    return reinterpret_cast<GPXDataHandle>(new GPXData(std::move(*result.value)));
+}
+
+char* gpxSerialize(GPXDataHandle handle, char** outError)
+{
+    GPXWriter writer;
+    const auto result = handle ? writer.serialize(*reinterpret_cast<GPXData*>(handle))
+                               : Result<std::string>::makeFailure("GPX data handle is null");
+    char* xml = result.success ? copyString(*result.value) : nullptr;
+    if (outError)
+    {
+        *outError = !result.success ? copyString(result.errorMessage)
+                    : !xml          ? copyString("Failed to allocate serialized GPX string")
+                                    : nullptr;
+    }
+    return xml;
+}
+
+bool gpxSaveFile(GPXDataHandle handle, const char* filePath, char** outError)
+{
+    GPXWriter writer;
+    const auto result = !handle ? Result<bool>::makeFailure("GPX data handle is null")
+                        : !filePath
+                            ? Result<bool>::makeFailure("File path is null")
+                            : writer.saveFile(*reinterpret_cast<GPXData*>(handle), filePath);
+    if (outError)
+    {
+        *outError = result.success ? nullptr : copyString(result.errorMessage);
+    }
+    return result.success;
+}
+
+void gpxStringFree(char* text)
+{
+    std::free(text);
+}
+
 // ============================================================================
 // MARK: - Data Access Functions
 // ============================================================================
@@ -103,6 +154,25 @@ const char* gpxDataGetCreator(GPXDataHandle handle)
         return "";
     auto* data = reinterpret_cast<GPXData*>(handle);
     return data->creator.c_str();
+}
+
+bool gpxDataSetCreator(GPXDataHandle handle, const char* creator, char** outError)
+{
+    if (!handle || !creator)
+    {
+        if (outError)
+        {
+            *outError = copyString(!handle ? "GPX data handle is null" : "Creator is null");
+        }
+        return false;
+    }
+    auto* data = reinterpret_cast<GPXData*>(handle);
+    data->creator = creator;
+    if (outError)
+    {
+        *outError = nullptr;
+    }
+    return true;
 }
 
 // ---- Track functions ----
@@ -229,12 +299,12 @@ void gpxSegmentGetPoint(GPXSegmentHandle handle, uint32_t index, double* outLat,
 // MARK: - Analytics Functions
 // ============================================================================
 
-void gpxAnalyze(GPXDataHandle handle)
+void gpxAnalyse(GPXDataHandle handle)
 {
     if (!handle)
         return;
     auto* data = reinterpret_cast<GPXData*>(handle);
-    GPXAnalytics::analyzeGPXData(*data);
+    GPXAnalytics::analyseGPXData(*data);
 }
 
 double gpxCalculateDistance(double lat1, double lon1, double lat2, double lon2)

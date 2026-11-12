@@ -213,7 +213,7 @@ std::optional<std::chrono::seconds> GPXAnalytics::calculateDuration(const Track&
     return duration;
 }
 
-void GPXAnalytics::analyzeTrack(Track& track)
+void GPXAnalytics::analyseTrack(Track& track)
 {
     // Calculate stats for each segment
     for (auto& segment : track.segments)
@@ -232,11 +232,11 @@ void GPXAnalytics::analyzeTrack(Track& track)
     track.duration = calculateDuration(track);
 }
 
-void GPXAnalytics::analyzeGPXData(GPXData& gpxData)
+void GPXAnalytics::analyseGPXData(GPXData& gpxData)
 {
     for (auto& track : gpxData.tracks)
     {
-        analyzeTrack(track);
+        analyseTrack(track);
     }
 }
 

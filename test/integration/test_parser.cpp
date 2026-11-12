@@ -1,5 +1,5 @@
 // test_parser.cpp
-// Simple test program for GPX parser
+// Integration test program for the GPX parser
 //
 // Copyright (c) 2026 Dimitris Savvaris
 // SPDX-License-Identifier: MIT
@@ -15,11 +15,18 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        std::cerr << "Usage: " << argv[0] << " <gpx_file>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " <gpx_file> [sample_points_count=3]\n";
+
         return 1;
     }
 
     std::string filePath = argv[1];
+
+    size_t samplePointsCount = 3;
+    if (argc >= 3)
+    {
+        samplePointsCount = std::stoul(argv[2]);
+    }
     std::cout << "Parsing GPX file: " << filePath << std::endl;
     std::cout << std::string(60, '-') << std::endl;
 
@@ -40,25 +47,26 @@ int main(int argc, char** argv)
     std::cout << std::endl;
 
     // Print track details
-    for (size_t i = 0; i < gpxData.tracks.size(); ++i)
+    for (const auto& track : gpxData.tracks)
     {
-        const Track& track = gpxData.tracks[i];
-        std::cout << "Track " << (i + 1) << ": " << track.name << std::endl;
+        std::cout << "Track: " << track.name << std::endl;
         std::cout << "  Segments: " << track.segmentCount() << std::endl;
         std::cout << "  Total Points: " << track.totalPointCount() << std::endl;
 
-        for (size_t j = 0; j < track.segments.size(); ++j)
+        for (const auto& seg : track.segments)
         {
-            const TrackSegment& seg = track.segments[j];
-            std::cout << "  Segment " << (j + 1) << ": " << seg.pointCount() << " points"
-                      << std::endl;
+            std::cout << "  Segment: " << seg.pointCount() << " points" << std::endl;
 
             // Print first few points as sample
-            size_t sampleCount = std::min(size_t(3), seg.points.size());
-            for (size_t k = 0; k < sampleCount; ++k)
+            size_t sampleCount = std::min(samplePointsCount, seg.points.size());
+
+            auto k = size_t(0);
+            for (const auto& pt : seg.points)
             {
-                const TrackPoint& pt = seg.points[k];
-                std::cout << "    Point " << (k + 1) << ": ";
+                k++;
+                if (k > sampleCount)
+                    break;
+                std::cout << "    Point " << k << ": ";
                 std::cout << std::fixed << std::setprecision(6);
                 std::cout << "lat=" << pt.latitude << ", lon=" << pt.longitude;
 

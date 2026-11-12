@@ -32,8 +32,18 @@ export function createReplay(segments: Segment[]): Replay {
     const sample = samples[i];
     if (!sample) continue;
     const previous = samples[i - 1];
+    const segment = segments[sample.segment];
     if (recorded && sample.point.timeUnixMs !== null && firstTime != null) {
       seconds = (sample.point.timeUnixMs - firstTime) / 1000;
+    } else if (segment && segment.durationSeconds !== null && segment.durationSeconds !== undefined) {
+      // Use the C++ calculated duration for this segment, distributed by point index
+      const segmentPoints = segment.points;
+      const pointIndex = segmentPoints.indexOf(sample.point);
+      if (pointIndex >= 0 && segmentPoints.length > 1) {
+        seconds = (pointIndex / (segmentPoints.length - 1)) * segment.durationSeconds;
+      } else if (pointIndex === 0) {
+        seconds = 0;
+      }
     } else if (previous && sample.segment === previous.segment) {
       seconds += Math.max(0, sample.point.distanceMeters - previous.point.distanceMeters) / 5;
     }

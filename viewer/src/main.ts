@@ -23,6 +23,7 @@ function element<T extends Element>(id: string, type: new () => T): T {
 }
 
 const fileInput = element("file", HTMLInputElement);
+const downloadButton = element("download", HTMLButtonElement);
 const trackSelect = element("track", HTMLSelectElement);
 const segmentSelect = element("segment", HTMLSelectElement);
 const status = element("status", HTMLParagraphElement);
@@ -76,6 +77,8 @@ const map = new Map({
 
 let analysis: Analysis | null = null;
 let loading = false;
+let exporting = false;
+let loadedFile: File | null = null;
 let filename = "";
 let replay = createReplay([]);
 let elapsed = 0;
@@ -292,25 +295,31 @@ function selectTrack() {
   renderSelection();
 }
 
+function updateFileControls() {
+  fileInput.disabled = loading || exporting;
+  downloadButton.disabled = loading || exporting || loadedFile === null;
+  downloadButton.textContent = exporting ? "Preparing GPX..." : "Download GPX";
+  dropZone.setAttribute("aria-busy", String(loading || exporting));
+}
+
 function setLoading(value: boolean) {
   if (value) pauseReplay();
   loading = value;
-  fileInput.disabled = value;
+  updateFileControls();
   trackSelect.disabled = value || analysis === null;
   segmentSelect.disabled = value || analysis === null;
-  dropZone.setAttribute("aria-busy", String(value));
   updateReplayControls();
 }
 
 async function loadFile(file: File) {
-  if (loading) return;
+  if (loading || exporting) return;
   error.hidden = true;
   setLoading(true);
   status.textContent = `Analysing ${file.name}...`;
   try {
     if (!file.name.toLowerCase().endsWith(".gpx")) throw new Error("Choose a .gpx track file.");
     if (file.size > 10 * 1024 * 1024) throw new Error("GPX upload exceeds the 10 MiB limit.");
-    const response = await fetch("/api/analyze", {
+    const response = await fetch("/api/analyse", {
       method: "POST",
       headers: { "Content-Type": "application/gpx+xml" },
       body: file,
@@ -324,6 +333,7 @@ async function loadFile(file: File) {
       throw new Error("Unsupported or empty analysis response.");
     }
     analysis = result;
+    loadedFile = file;
     filename = file.name;
     trackSelect.replaceChildren();
     analysis.tracks.forEach((track, index) => {
@@ -341,6 +351,43 @@ async function loadFile(file: File) {
   }
 }
 
+async function downloadGpx() {
+  if (loading || exporting || !loadedFile) return;
+  const file = loadedFile;
+  exporting = true;
+  error.hidden = true;
+  updateFileControls();
+  try {
+    const response = await fetch("/api/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/gpx+xml" },
+      body: file,
+    });
+    if (!response.ok) {
+      const problem: { error: string } = await response.json();
+      throw new Error(problem.error || `GPX export failed (HTTP ${response.status}).`);
+    }
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${file.name.replace(/\.gpx$/i, "")}-export.gpx`;
+    document.body.append(link);
+    try {
+      link.click();
+    } finally {
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  } catch (cause) {
+    error.textContent = cause instanceof Error ? cause.message : String(cause);
+    error.hidden = false;
+  } finally {
+    exporting = false;
+    updateFileControls();
+  }
+}
+
+downloadButton.addEventListener("click", () => void downloadGpx());
 fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];
   if (file) void loadFile(file);
@@ -348,7 +395,7 @@ fileInput.addEventListener("change", () => {
 dropZone.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
-    if (!loading) fileInput.click();
+    if (!loading && !exporting) fileInput.click();
   }
 });
 dropZone.addEventListener("dragover", (event) => {
@@ -359,6 +406,7 @@ dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragging
 dropZone.addEventListener("drop", (event) => {
   event.preventDefault();
   dropZone.classList.remove("dragging");
+  if (loading || exporting) return;
   const files = event.dataTransfer?.files;
   if (files?.length === 1 && files[0]) void loadFile(files[0]);
   else {

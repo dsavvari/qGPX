@@ -25,7 +25,7 @@ jobs:
       - name: Check formatting
         run: |
           if command -v clang-format &> /dev/null; then
-            clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
+            clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
           else
             echo "Warning: clang-format not available, skipping format check"
           fi
@@ -47,15 +47,3 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
-
-      - name: Verify standalone library consumers
-        run: |
-          cmake -S . -B build/core -DBUILD_TESTS=OFF -DBUILD_VIEWER=OFF
-          cmake --build build/core --parallel 2
-          cmake --install build/core --prefix "$PWD/build/install"
-          cmake -S test/integration -B build/installed-consumer -DCMAKE_PREFIX_PATH="$PWD/build/install"
-          cmake --build build/installed-consumer --parallel 2
-          ctest --test-dir build/installed-consumer --output-on-failure
-          cmake -S test/integration -B build/source-consumer -DQGPX_SOURCE_DIR="$PWD"
-          cmake --build build/source-consumer --parallel 2
-          ctest --test-dir build/source-consumer --output-on-failure

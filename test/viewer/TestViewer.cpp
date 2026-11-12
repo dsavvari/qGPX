@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "ViewerServer.hpp"
+#include "GPXParser.hpp"
 
 #include <gtest/gtest.h>
 #include <json.hpp>
@@ -53,9 +54,9 @@ TEST_F(ViewerTest, ServesFrontend)
     EXPECT_EQ(result->get_header_value("Referrer-Policy"), "strict-origin-when-cross-origin");
 }
 
-TEST_F(ViewerTest, AnalyzesTracksWithoutConnectingSegments)
+TEST_F(ViewerTest, AnalysesTracksWithoutConnectingSegments)
 {
-    auto result = client->Post("/api/analyze", GPX, "application/gpx+xml");
+    auto result = client->Post("/api/analyse", GPX, "application/gpx+xml");
     ASSERT_TRUE(result);
     ASSERT_EQ(result->status, 200);
     const auto body = nlohmann::json::parse(result->body);
@@ -95,29 +96,75 @@ TEST_F(ViewerTest, AnalyzesTracksWithoutConnectingSegments)
 
 TEST_F(ViewerTest, ReportsMalformedAndEmptyUploads)
 {
-    for (const auto& xml :
-         {"", "<gpx>", "<gpx/>", "<gpx><trk><trkseg><trkpt lat=\"bad\"/></trkseg></trk></gpx>"})
+    for (const auto* route : {"/api/analyse", "/api/export"})
     {
-        auto result = client->Post("/api/analyze", xml, "application/gpx+xml");
-        ASSERT_TRUE(result);
-        EXPECT_EQ(result->status, 422);
-        EXPECT_FALSE(nlohmann::json::parse(result->body)["error"].get<std::string>().empty());
+        for (const auto& xml :
+             {"", "<gpx>", "<gpx/>", "<gpx><trk><trkseg><trkpt lat=\"bad\"/></trkseg></trk></gpx>"})
+        {
+            auto result = client->Post(route, xml, "application/gpx+xml");
+            ASSERT_TRUE(result);
+            EXPECT_EQ(result->status, 422);
+            EXPECT_FALSE(nlohmann::json::parse(result->body)["error"].get<std::string>().empty());
+        }
     }
 }
 
 TEST_F(ViewerTest, RejectsUnsupportedContentType)
 {
-    auto result = client->Post("/api/analyze", GPX, "text/plain");
+    for (const auto* route : {"/api/analyse", "/api/export"})
+    {
+        auto result = client->Post(route, GPX, "text/plain");
+        ASSERT_TRUE(result);
+        EXPECT_EQ(result->status, 415);
+    }
+}
+
+TEST_F(ViewerTest, ExportsAllTracksWithViewerCreatorAndGpxContentType)
+{
+    auto result = client->Post("/api/export", GPX, "application/gpx+xml");
     ASSERT_TRUE(result);
-    EXPECT_EQ(result->status, 415);
+    ASSERT_EQ(result->status, 200);
+    EXPECT_EQ(result->get_header_value("Content-Type"), "application/gpx+xml");
+    EXPECT_EQ(result->get_header_value("Content-Disposition"),
+              "attachment; filename=\"track.gpx\"");
+    EXPECT_NE(result->body.find("xmlns=\"http://www.topografix.com/GPX/1/1\""), std::string::npos);
+    const auto parsed = qGpx::core::GPXParser{}.parse(result->body);
+    ASSERT_TRUE(parsed.success) << parsed.errorMessage;
+    EXPECT_EQ(parsed.value->creator, "qGPX Track lab");
+    ASSERT_EQ(parsed.value->tracks.size(), 2u);
+    const auto& track = parsed.value->tracks.front();
+    EXPECT_EQ(track.name, "Test & Track");
+    ASSERT_EQ(track.segments.size(), 2u);
+    ASSERT_EQ(track.segments.front().points.size(), 2u);
+    const auto& point = track.segments.front().points.front();
+    EXPECT_DOUBLE_EQ(point.latitude, 38);
+    EXPECT_DOUBLE_EQ(point.longitude, 23);
+    EXPECT_EQ(point.elevation, 100);
+    EXPECT_EQ(point.time, qGpx::core::GPXParser::parseTime("2026-03-03T09:00:00Z"));
+    EXPECT_FALSE(track.segments[1].points.front().elevation);
+    EXPECT_FALSE(track.segments[1].points.front().time);
+    EXPECT_FALSE(track.totalDistance);
+}
+
+TEST_F(ViewerTest, ReportsExportValidationFailure)
+{
+    const std::string xml = R"(<gpx><trk><trkseg><trkpt lat="0" lon="180"/></trkseg></trk></gpx>)";
+    auto result = client->Post("/api/export", xml, "application/gpx+xml");
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result->status, 422);
+    EXPECT_EQ(result->get_header_value("Content-Type"), "application/json");
+    EXPECT_NE(nlohmann::json::parse(result->body)["error"].get<std::string>().find("longitude"),
+              std::string::npos);
+    EXPECT_FALSE(result->has_header("Content-Disposition"));
 }
 
 TEST_F(ViewerTest, ReportsNonFiniteAnalytics)
 {
-    const std::string xml =
-        R"(<gpx><trk><trkseg><trkpt lat="0" lon="0"><ele>-1e308</ele></trkpt>
-        <trkpt lat="0" lon="1"><ele>1e308</ele></trkpt></trkseg></trk></gpx>)";
-    auto result = client->Post("/api/analyze", xml, "application/gpx+xml");
+    const std::string elevation = "1" + std::string(308, '0');
+    const std::string xml = R"(<gpx><trk><trkseg><trkpt lat="0" lon="0"><ele>-)" + elevation +
+                            R"(</ele></trkpt><trkpt lat="0" lon="1"><ele>)" + elevation +
+                            R"(</ele></trkpt></trkseg></trk></gpx>)";
+    auto result = client->Post("/api/analyse", xml, "application/gpx+xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 422);
     EXPECT_NE(nlohmann::json::parse(result->body)["error"].get<std::string>().find("non-finite"),
@@ -126,26 +173,32 @@ TEST_F(ViewerTest, ReportsNonFiniteAnalytics)
 
 TEST_F(ViewerTest, RejectsCrossOriginAndForeignHost)
 {
-    auto result = client->Post("/api/analyze", {{"Origin", "https://example.com"}}, GPX,
-                               "application/gpx+xml");
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result->status, 403);
-    result = client->Get("/", httplib::Headers{{"Host", "example.com"}});
+    for (const auto* route : {"/api/analyse", "/api/export"})
+    {
+        auto result =
+            client->Post(route, {{"Origin", "https://example.com"}}, GPX, "application/gpx+xml");
+        ASSERT_TRUE(result);
+        EXPECT_EQ(result->status, 403);
+    }
+    auto result = client->Get("/", httplib::Headers{{"Host", "example.com"}});
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 403);
 }
 
 TEST_F(ViewerTest, EnforcesExactUploadLimit)
 {
-    std::string xml = GPX;
-    xml.append(qGpx::viewer::MaxUploadBytes - xml.size(), ' ');
-    auto result = client->Post("/api/analyze", xml, "application/gpx+xml");
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result->status, 200);
-    xml.push_back(' ');
-    result = client->Post("/api/analyze", xml, "application/gpx+xml");
-    ASSERT_TRUE(result);
-    EXPECT_EQ(result->status, 413);
+    for (const auto* route : {"/api/analyse", "/api/export"})
+    {
+        std::string xml = GPX;
+        xml.append(qGpx::viewer::MaxUploadBytes - xml.size(), ' ');
+        auto result = client->Post(route, xml, "application/gpx+xml");
+        ASSERT_TRUE(result);
+        EXPECT_EQ(result->status, 200);
+        xml.push_back(' ');
+        result = client->Post(route, xml, "application/gpx+xml");
+        ASSERT_TRUE(result);
+        EXPECT_EQ(result->status, 413);
+    }
 }
 
 TEST_F(ViewerTest, ReportsMissingEndpoints)

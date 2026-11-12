@@ -20,6 +20,7 @@ struct TrackPoint
     double latitude;                 // Degrees
     double longitude;                // Degrees
     std::optional<double> elevation; // Meters above sea level
+    /// Timestamp precision is limited to the platform's system_clock duration.
     std::optional<std::chrono::system_clock::time_point> time;
 
     TrackPoint(double lat, double lon) : latitude(lat), longitude(lon)
@@ -100,7 +101,7 @@ struct GPXData
     }
 };
 
-/// Result type for parsing operations
+/// Result type for GPX operations
 template <typename T> struct Result
 {
     bool success;

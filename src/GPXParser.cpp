@@ -13,6 +13,7 @@
 #include <cctype>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <locale>
@@ -109,6 +110,14 @@ struct ParserState
 
 static bool parseFiniteDouble(const std::string& value, double& result)
 {
+    // GPX's xsd:decimal permits neither hexadecimal nor scientific notation.
+    // Stream implementations can differ in whether they accept hexadecimal or scientific notation.
+    // Reject them explicitly by only allowing digits, sign, decimal point, and whitespace.
+    if (value.find_first_not_of("0123456789+-. \t\n\r") != std::string::npos)
+    {
+        return false;
+    }
+
     std::istringstream input(value);
     input.imbue(std::locale::classic());
 
@@ -155,6 +164,7 @@ static void XMLCALL startElementHandler(void* userData, const char* name, const 
         state->pushElement(ParserState::Element::GPX);
 
         // Parse creator attribute
+        // TODO: Parse other attributes if needed
         for (int i = 0; atts[i]; i += 2)
         {
             if (std::strcmp(atts[i], "creator") == 0)
@@ -384,7 +394,7 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
     XML_SetElementHandler(parser, startElementHandler, endElementHandler);
     XML_SetCharacterDataHandler(parser, characterDataHandler);
 
-    // Parse the XML content
+    // Parse the XML content, Expat doesn't throw exceptions but returns error codes
     int parseResult = XML_Parse(parser, xmlContent.c_str(), static_cast<int>(xmlContent.size()), 1);
 
     if (parseResult == XML_STATUS_ERROR)
@@ -417,16 +427,38 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
 
 Result<GPXData> GPXParser::parseFile(const std::string& filePath)
 {
+    if (filePath.empty() || filePath.find('\0') != std::string::npos)
+    {
+        return Result<GPXData>::makeFailure("File path is empty or contains a null character");
+    }
+    std::error_code error;
+    const bool isDirectory = std::filesystem::is_directory(filePath, error);
+    if (error)
+    {
+        return Result<GPXData>::makeFailure("Failed to open file: " + filePath);
+    }
+    if (isDirectory)
+    {
+        return Result<GPXData>::makeFailure("Failed to read file: " + filePath);
+    }
     // Read file content
-    std::ifstream file(filePath);
+    std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open())
     {
         return Result<GPXData>::makeFailure("Failed to open file: " + filePath);
     }
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string xmlContent = buffer.str();
+    std::string xmlContent;
+    char buffer[4096];
+    while (file.read(buffer, sizeof(buffer)))
+    {
+        xmlContent.append(buffer, sizeof(buffer));
+    }
+    xmlContent.append(buffer, static_cast<std::size_t>(file.gcount()));
+    if (file.bad() || !file.eof())
+    {
+        return Result<GPXData>::makeFailure("Failed to read file: " + filePath);
+    }
 
     return parse(xmlContent);
 }

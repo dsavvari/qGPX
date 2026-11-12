@@ -17,7 +17,7 @@ int main()
         std::cerr << result.errorMessage << '\n';
         return 1;
     }
-    qGpx::core::GPXAnalytics::analyzeGPXData(*result.value);
+    qGpx::core::GPXAnalytics::analyseGPXData(*result.value);
     const double distance = *result.value->tracks.front().totalDistance;
     if (distance < 110 || distance > 112)
     {
