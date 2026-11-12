@@ -13,6 +13,7 @@
 #include <cctype>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <locale>
@@ -109,6 +110,14 @@ struct ParserState
 
 static bool parseFiniteDouble(const std::string& value, double& result)
 {
+    // GPX's xsd:decimal permits neither hexadecimal nor scientific notation.
+    // Stream implementations can differ in whether they accept hexadecimal or scientific notation.
+    // Reject them explicitly by only allowing digits, sign, decimal point, and whitespace.
+    if (value.find_first_not_of("0123456789+-. \t\n\r") != std::string::npos)
+    {
+        return false;
+    }
+
     std::istringstream input(value);
     input.imbue(std::locale::classic());
 
@@ -421,6 +430,16 @@ Result<GPXData> GPXParser::parseFile(const std::string& filePath)
     if (filePath.empty() || filePath.find('\0') != std::string::npos)
     {
         return Result<GPXData>::makeFailure("File path is empty or contains a null character");
+    }
+    std::error_code error;
+    const bool isDirectory = std::filesystem::is_directory(filePath, error);
+    if (error)
+    {
+        return Result<GPXData>::makeFailure("Failed to open file: " + filePath);
+    }
+    if (isDirectory)
+    {
+        return Result<GPXData>::makeFailure("Failed to read file: " + filePath);
     }
     // Read file content
     std::ifstream file(filePath, std::ios::binary);

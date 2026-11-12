@@ -6,8 +6,10 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <iomanip>
 #include <limits>
 #include <locale>
+#include <sstream>
 
 using namespace qGpx::core;
 
@@ -57,7 +59,18 @@ TEST(GPXWriter, RoundTripsModeledDataAndPreservesPrecision)
         EXPECT_EQ(restored.elevation, original.elevation);
         EXPECT_EQ(restored.time, original.time);
     }
-    EXPECT_NE(xml.value->find("2026-11-12T16:00:00.123456789Z"), std::string::npos);
+    const auto fraction = std::chrono::duration_cast<std::chrono::system_clock::duration>(
+        std::chrono::nanoseconds(123456789));
+    const auto utcSeconds = GPXParser::parseTime("2026-11-12T16:00:00Z");
+    ASSERT_TRUE(utcSeconds.has_value());
+    EXPECT_EQ(data.tracks.front().segments.front().points.front().time, *utcSeconds + fraction);
+
+    std::ostringstream expectedTimestamp;
+    expectedTimestamp.imbue(std::locale::classic());
+    expectedTimestamp << "2026-11-12T16:00:00." << std::setw(9) << std::setfill('0')
+                      << std::chrono::duration_cast<std::chrono::nanoseconds>(fraction).count()
+                      << 'Z';
+    EXPECT_NE(xml.value->find(expectedTimestamp.str()), std::string::npos);
     EXPECT_FALSE(track.totalDistance);
 }
 
@@ -190,7 +203,7 @@ TEST_F(GPXFileIO, CppSaveLoadAndInvalidDataDoesNotOverwrite)
     EXPECT_FALSE(GPXWriter{}.saveFile(sampleData(), path + std::string("\0suffix", 7)).success);
     const auto unreadable = GPXParser{}.parseFile(directory.string());
     EXPECT_FALSE(unreadable.success);
-    EXPECT_NE(unreadable.errorMessage.find("read"), std::string::npos);
+    EXPECT_EQ(unreadable.errorMessage, "Failed to read file: " + directory.string());
     EXPECT_FALSE(GPXParser{}.parseFile(path + std::string("\0suffix", 7)).success);
 }
 

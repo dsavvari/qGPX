@@ -160,9 +160,10 @@ TEST_F(ViewerTest, ReportsExportValidationFailure)
 
 TEST_F(ViewerTest, ReportsNonFiniteAnalytics)
 {
-    const std::string xml =
-        R"(<gpx><trk><trkseg><trkpt lat="0" lon="0"><ele>-1e308</ele></trkpt>
-        <trkpt lat="0" lon="1"><ele>1e308</ele></trkpt></trkseg></trk></gpx>)";
+    const std::string elevation = "1" + std::string(308, '0');
+    const std::string xml = R"(<gpx><trk><trkseg><trkpt lat="0" lon="0"><ele>-)" + elevation +
+                            R"(</ele></trkpt><trkpt lat="0" lon="1"><ele>)" + elevation +
+                            R"(</ele></trkpt></trkseg></trk></gpx>)";
     auto result = client->Post("/api/analyse", xml, "application/gpx+xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 422);

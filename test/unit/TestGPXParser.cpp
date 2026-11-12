@@ -43,12 +43,33 @@ TEST(GPXParser, InvalidCoordinateFailure)
 TEST(GPXParser, HexadecimalCoordinateFailure)
 {
     GPXParser parser;
-    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="0x1p5" lon="6.0"/></trkseg></trk></gpx>)";
+    for (const std::string value : {"0x1p5", "0X1P5", "+0x1p5", "-0X1P5", " 0x1p5 ", "0x20"})
+    {
+        SCOPED_TRACE(value);
+        const std::string gpx =
+            R"(<gpx><trk><trkseg><trkpt lat=")" + value + R"(" lon="6.0"/></trkseg></trk></gpx>)";
 
-    auto result = parser.parse(gpx);
+        auto result = parser.parse(gpx);
 
-    EXPECT_FALSE(result.success);
-    EXPECT_EQ(result.errorMessage, "Invalid latitude value");
+        EXPECT_FALSE(result.success);
+        EXPECT_EQ(result.errorMessage, "Invalid latitude value");
+    }
+}
+
+TEST(GPXParser, HexadecimalLongitudeFailure)
+{
+    GPXParser parser;
+    for (const std::string value : {"0x1p5", "0X1P5", "+0x1p5", "-0X1P5", " 0x1p5 ", "0x20"})
+    {
+        SCOPED_TRACE(value);
+        const std::string gpx =
+            R"(<gpx><trk><trkseg><trkpt lat="45.0" lon=")" + value + R"("/></trkseg></trk></gpx>)";
+
+        auto result = parser.parse(gpx);
+
+        EXPECT_FALSE(result.success);
+        EXPECT_EQ(result.errorMessage, "Invalid longitude value");
+    }
 }
 
 TEST(GPXParser, OutOfRangeCoordinateFailure)
@@ -77,13 +98,69 @@ TEST(GPXParser, InvalidElevationFailure)
 TEST(GPXParser, HexadecimalElevationFailure)
 {
     GPXParser parser;
-    const char* gpx = R"(<gpx><trk><trkseg><trkpt lat="45.0" lon="6.0"><ele>0x1p5</ele></trkpt>)"
-                      R"(</trkseg></trk></gpx>)";
+    for (const std::string value : {"0x1p5", "0X1P5", "+0x1p5", "-0X1P5", " 0x1p5 ", "0x20"})
+    {
+        SCOPED_TRACE(value);
+        const std::string gpx = R"(<gpx><trk><trkseg><trkpt lat="45.0" lon="6.0"><ele>)" + value +
+                                R"(</ele></trkpt></trkseg></trk></gpx>)";
 
-    auto result = parser.parse(gpx);
+        auto result = parser.parse(gpx);
 
-    EXPECT_FALSE(result.success);
-    EXPECT_EQ(result.errorMessage, "Invalid elevation value");
+        EXPECT_FALSE(result.success);
+        EXPECT_EQ(result.errorMessage, "Invalid elevation value");
+    }
+}
+
+TEST(GPXParser, ScientificNotationFailure)
+{
+    GPXParser parser;
+    for (const std::string value : {"3.2e1", "3.2E+1", "32e-1", "-3.2e1", " 3.2e1 "})
+    {
+        SCOPED_TRACE(value);
+        auto latitude = parser.parse(R"(<gpx><trk><trkseg><trkpt lat=")" + value +
+                                     R"(" lon="6.0"/></trkseg></trk></gpx>)");
+        EXPECT_FALSE(latitude.success);
+        EXPECT_EQ(latitude.errorMessage, "Invalid latitude value");
+
+        auto longitude = parser.parse(R"(<gpx><trk><trkseg><trkpt lat="45.0" lon=")" + value +
+                                      R"("/></trkseg></trk></gpx>)");
+        EXPECT_FALSE(longitude.success);
+        EXPECT_EQ(longitude.errorMessage, "Invalid longitude value");
+
+        auto elevation = parser.parse(R"(<gpx><trk><trkseg><trkpt lat="45.0" lon="6.0"><ele>)" +
+                                      value + R"(</ele></trkpt></trkseg></trk></gpx>)");
+        EXPECT_FALSE(elevation.success);
+        EXPECT_EQ(elevation.errorMessage, "Invalid elevation value");
+    }
+}
+
+TEST(GPXParser, DecimalNumberFormats)
+{
+    GPXParser parser;
+    const struct
+    {
+        const char* text;
+        double expected;
+    } cases[] = {{"32", 32.0},     {"+32.0", 32.0}, {"-32.0", -32.0},
+                 {" 32.0 ", 32.0}, {".5", 0.5},     {"32.", 32.0}};
+
+    for (const auto& testCase : cases)
+    {
+        SCOPED_TRACE(testCase.text);
+        const std::string value = testCase.text;
+        const std::string gpx = R"(<gpx><trk><trkseg><trkpt lat=")" + value + R"(" lon=")" + value +
+                                R"("><ele>)" + value + R"(</ele></trkpt></trkseg></trk></gpx>)";
+
+        auto result = parser.parse(gpx);
+
+        ASSERT_TRUE(result.success) << result.errorMessage;
+        ASSERT_TRUE(result.value.has_value());
+        const auto& point = result.value->tracks[0].segments[0].points[0];
+        EXPECT_DOUBLE_EQ(point.latitude, testCase.expected);
+        EXPECT_DOUBLE_EQ(point.longitude, testCase.expected);
+        ASSERT_TRUE(point.elevation.has_value());
+        EXPECT_DOUBLE_EQ(*point.elevation, testCase.expected);
+    }
 }
 
 TEST(GPXParser, EmptyElevationFailure)
