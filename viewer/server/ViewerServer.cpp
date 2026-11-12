@@ -43,7 +43,7 @@ json elevation(const std::optional<double>& value)
 
 json serialize(core::GPXData& data)
 {
-    core::GPXAnalytics::analyzeGPXData(data);
+    core::GPXAnalytics::analyseGPXData(data);
     json tracks = json::array();
     for (const auto& track : data.tracks)
     {
@@ -163,7 +163,7 @@ bool configureServer(httplib::Server& server, const std::string& assetDirectory)
                           : "Request failed (HTTP " + std::to_string(response.status) + ")");
             }
         });
-    server.Post("/api/analyze",
+    server.Post("/api/analyse",
                 [](const httplib::Request& request, httplib::Response& response)
                 {
                     if (request.get_header_value("Content-Type") != "application/gpx+xml")

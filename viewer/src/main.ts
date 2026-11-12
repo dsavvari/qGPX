@@ -310,7 +310,7 @@ async function loadFile(file: File) {
   try {
     if (!file.name.toLowerCase().endsWith(".gpx")) throw new Error("Choose a .gpx track file.");
     if (file.size > 10 * 1024 * 1024) throw new Error("GPX upload exceeds the 10 MiB limit.");
-    const response = await fetch("/api/analyze", {
+    const response = await fetch("/api/analyse", {
       method: "POST",
       headers: { "Content-Type": "application/gpx+xml" },
       body: file,

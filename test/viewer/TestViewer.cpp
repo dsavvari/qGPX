@@ -53,9 +53,9 @@ TEST_F(ViewerTest, ServesFrontend)
     EXPECT_EQ(result->get_header_value("Referrer-Policy"), "strict-origin-when-cross-origin");
 }
 
-TEST_F(ViewerTest, AnalyzesTracksWithoutConnectingSegments)
+TEST_F(ViewerTest, AnalysesTracksWithoutConnectingSegments)
 {
-    auto result = client->Post("/api/analyze", GPX, "application/gpx+xml");
+    auto result = client->Post("/api/analyse", GPX, "application/gpx+xml");
     ASSERT_TRUE(result);
     ASSERT_EQ(result->status, 200);
     const auto body = nlohmann::json::parse(result->body);
@@ -98,7 +98,7 @@ TEST_F(ViewerTest, ReportsMalformedAndEmptyUploads)
     for (const auto& xml :
          {"", "<gpx>", "<gpx/>", "<gpx><trk><trkseg><trkpt lat=\"bad\"/></trkseg></trk></gpx>"})
     {
-        auto result = client->Post("/api/analyze", xml, "application/gpx+xml");
+        auto result = client->Post("/api/analyse", xml, "application/gpx+xml");
         ASSERT_TRUE(result);
         EXPECT_EQ(result->status, 422);
         EXPECT_FALSE(nlohmann::json::parse(result->body)["error"].get<std::string>().empty());
@@ -107,7 +107,7 @@ TEST_F(ViewerTest, ReportsMalformedAndEmptyUploads)
 
 TEST_F(ViewerTest, RejectsUnsupportedContentType)
 {
-    auto result = client->Post("/api/analyze", GPX, "text/plain");
+    auto result = client->Post("/api/analyse", GPX, "text/plain");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 415);
 }
@@ -117,7 +117,7 @@ TEST_F(ViewerTest, ReportsNonFiniteAnalytics)
     const std::string xml =
         R"(<gpx><trk><trkseg><trkpt lat="0" lon="0"><ele>-1e308</ele></trkpt>
         <trkpt lat="0" lon="1"><ele>1e308</ele></trkpt></trkseg></trk></gpx>)";
-    auto result = client->Post("/api/analyze", xml, "application/gpx+xml");
+    auto result = client->Post("/api/analyse", xml, "application/gpx+xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 422);
     EXPECT_NE(nlohmann::json::parse(result->body)["error"].get<std::string>().find("non-finite"),
@@ -126,7 +126,7 @@ TEST_F(ViewerTest, ReportsNonFiniteAnalytics)
 
 TEST_F(ViewerTest, RejectsCrossOriginAndForeignHost)
 {
-    auto result = client->Post("/api/analyze", {{"Origin", "https://example.com"}}, GPX,
+    auto result = client->Post("/api/analyse", {{"Origin", "https://example.com"}}, GPX,
                                "application/gpx+xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 403);
@@ -139,11 +139,11 @@ TEST_F(ViewerTest, EnforcesExactUploadLimit)
 {
     std::string xml = GPX;
     xml.append(qGpx::viewer::MaxUploadBytes - xml.size(), ' ');
-    auto result = client->Post("/api/analyze", xml, "application/gpx+xml");
+    auto result = client->Post("/api/analyse", xml, "application/gpx+xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 200);
     xml.push_back(' ');
-    result = client->Post("/api/analyze", xml, "application/gpx+xml");
+    result = client->Post("/api/analyse", xml, "application/gpx+xml");
     ASSERT_TRUE(result);
     EXPECT_EQ(result->status, 413);
 }

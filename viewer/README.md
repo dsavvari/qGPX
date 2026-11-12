@@ -103,13 +103,13 @@ still uses its actual derived speed.
 
 ## API
 
-`POST /api/analyze`, with raw GPX XML and `Content-Type: application/gpx+xml`.
+`POST /api/analyse`, with raw GPX XML and `Content-Type: application/gpx+xml`.
 No multipart wrapper or filename is required.
 
 ```sh
 curl -H 'Content-Type: application/gpx+xml' \
   --data-binary @test/activity_22044819196.gpx \
-  http://127.0.0.1:8080/api/analyze
+  http://127.0.0.1:8080/api/analyse
 ```
 
 A successful response is JSON:
