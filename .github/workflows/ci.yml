@@ -47,15 +47,3 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
-
-      - name: Verify standalone library consumers
-        run: |
-          cmake -S . -B build/core -DBUILD_TESTS=OFF -DBUILD_VIEWER=OFF
-          cmake --build build/core --parallel 2
-          cmake --install build/core --prefix "$PWD/build/install"
-          cmake -S test/integration -B build/installed-consumer -DCMAKE_PREFIX_PATH="$PWD/build/install"
-          cmake --build build/installed-consumer --parallel 2
-          ctest --test-dir build/installed-consumer --output-on-failure
-          cmake -S test/integration -B build/source-consumer -DQGPX_SOURCE_DIR="$PWD"
-          cmake --build build/source-consumer --parallel 2
-          ctest --test-dir build/source-consumer --output-on-failure

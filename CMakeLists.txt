@@ -29,7 +29,7 @@ target_include_directories(qGPX
 find_package(EXPAT REQUIRED)
 target_link_libraries(qGPX PUBLIC EXPAT::EXPAT)
 
-# Unit Tests with Google Test
+# Unit and integration tests
 
 set(QGPX_TOP_LEVEL OFF)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
@@ -57,13 +57,7 @@ if(BUILD_TESTS)
 
     # Add unit tests
     add_subdirectory(test/unit)
-
-    # Standalone test executables
-    add_executable(test_parser test/test_parser.cpp)
-    target_link_libraries(test_parser PRIVATE qGPX)
-
-    add_executable(test_elevation test/test_elevation.cpp)
-    target_link_libraries(test_elevation PRIVATE qGPX)
+    add_subdirectory(test/integration)
 endif()
 
 if(BUILD_VIEWER)

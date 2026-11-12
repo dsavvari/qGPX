@@ -13,8 +13,13 @@ It also derives adjacent-point and maximum speed from coordinates and timestamps
 - Expat
 - GoogleTest is fetched by CMake when tests are enabled (the default)
 
-On macOS, install Expat with `brew install expat`. On Ubuntu or Debian, install it
-with `sudo apt install libexpat1-dev`.
+Install the required Expat dependency with `brew install expat` on macOS or
+`sudo apt install libexpat1-dev` on Ubuntu or Debian.
+
+`clang-format` is optional and is only needed for the formatting commands and
+the pre-commit formatting hook. On macOS, install LLVM with `brew install llvm`;
+if needed, add `$(brew --prefix llvm)/bin` to your `PATH`. On Ubuntu or Debian,
+install it with `sudo apt install clang-format`.
 
 ## Build and test
 
@@ -22,6 +27,16 @@ with `sudo apt install libexpat1-dev`.
 cmake -S . -B build
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
+```
+
+These commands build and run the unit and integration tests. Integration test
+executables are placed under `build/test/integration` and are only added when
+`BUILD_TESTS` is enabled (the default for a top-level build). For example, the
+parser and elevation executables can also be run directly with a GPX file:
+
+```sh
+./build/test/integration/test_parser test/activity_22044819196.gpx
+./build/test/integration/test_elevation test/activity_22044819196.gpx
 ```
 
 To build only the reusable library, without tests, HTTP code, or UI:
@@ -67,7 +82,7 @@ target_link_libraries(my_app PRIVATE qGPX::qGPX)
 
 Tests default to off when qGPX is a subdirectory; the viewer always defaults to
 off. Explicit `BUILD_TESTS` and `BUILD_VIEWER` settings override these defaults.
-The [integration fixture](test/integration/) exercises both consumption methods.
+When `BUILD_TESTS=OFF`, neither unit nor integration test targets are added.
 
 ## Code formatting
 
@@ -76,13 +91,13 @@ maintained C++ files. The commands below cover the public headers, implementatio
 and tests:
 
 ```sh
-clang-format -i include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
+clang-format -i include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
 ```
 
 Check formatting without changing files:
 
 ```sh
-clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
+clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
 ```
 
 Formatting is checked in CI, but is not part of the CMake build or configured to
@@ -114,7 +129,7 @@ cmake --build build --parallel
 ./build/qgpx-viewer
 ```
 
-Requires Node.js 24 or newer in addition to the core build dependencies.
+Requires Node.js 22 or newer in addition to the core build dependencies.
 The frontend must be built first: `qgpx-viewer` serves `viewer/dist` and exits with
 `Frontend not found in .../viewer/dist` if it is missing. `viewer/dist` is generated
 and git-ignored, so run `npm --prefix viewer ci && npm --prefix viewer run build`

@@ -1,5 +1,5 @@
 // test_elevation.cpp
-// Quick test to check elevation calculations
+// Integration test for elevation calculations
 //
 // Copyright (c) 2026 Dimitris Savvaris
 // SPDX-License-Identifier: MIT

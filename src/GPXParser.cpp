@@ -155,6 +155,7 @@ static void XMLCALL startElementHandler(void* userData, const char* name, const 
         state->pushElement(ParserState::Element::GPX);
 
         // Parse creator attribute
+        // TODO: Parse other attributes if needed
         for (int i = 0; atts[i]; i += 2)
         {
             if (std::strcmp(atts[i], "creator") == 0)
@@ -384,7 +385,7 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
     XML_SetElementHandler(parser, startElementHandler, endElementHandler);
     XML_SetCharacterDataHandler(parser, characterDataHandler);
 
-    // Parse the XML content
+    // Parse the XML content, Expat doesn't throw exceptions but returns error codes
     int parseResult = XML_Parse(parser, xmlContent.c_str(), static_cast<int>(xmlContent.size()), 1);
 
     if (parseResult == XML_STATUS_ERROR)

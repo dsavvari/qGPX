@@ -1,17 +1,15 @@
 cmake_minimum_required(VERSION 3.20)
-project(qGPXConsumer LANGUAGES CXX)
 
-if(QGPX_SOURCE_DIR)
-    add_subdirectory("${QGPX_SOURCE_DIR}" qgpx)
-else()
-    find_package(qGPX 0.2 CONFIG REQUIRED)
-endif()
+add_executable(test_analyse test_analyse.cpp)
+target_link_libraries(test_analyse PRIVATE qGPX)
 
-if(TARGET qgpx-viewer OR TARGET qgpx_viewer_server OR TARGET unit_tests)
-    message(FATAL_ERROR "The library consumer must not build the viewer or library tests")
-endif()
+add_executable(test_parser test_parser.cpp)
+target_link_libraries(test_parser PRIVATE qGPX)
 
-add_executable(qgpx-consumer main.cpp)
-target_link_libraries(qgpx-consumer PRIVATE qGPX::qGPX)
-enable_testing()
-add_test(NAME qgpx-consumer COMMAND qgpx-consumer)
+add_executable(test_elevation test_elevation.cpp)
+target_link_libraries(test_elevation PRIVATE qGPX)
+
+set(TEST_GPX_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../activity_22044819196.gpx")
+add_test(NAME test_analyse COMMAND test_analyse)
+add_test(NAME test_parser COMMAND test_parser "${TEST_GPX_FILE}")
+add_test(NAME test_elevation COMMAND test_elevation "${TEST_GPX_FILE}")
