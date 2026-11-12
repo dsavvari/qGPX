@@ -13,6 +13,9 @@ class GPXWriter
 {
 public:
     /// Serialize tracks, segments, coordinates, elevation and UTC timestamps.
+    /// Numbers use shortest round-trip decimal representations without exponents.
+    /// Coordinates are padded to at least six decimal places and elevations to two;
+    /// additional significant digits are retained without rounding.
     /// Uses "qGPX" when creator is empty. Rejects invalid XML text or measurements.
     Result<std::string> serialize(const GPXData& data) const;
 

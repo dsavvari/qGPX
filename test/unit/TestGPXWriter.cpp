@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <filesystem>
 #include <iomanip>
 #include <limits>
@@ -54,8 +55,8 @@ TEST(GPXWriter, RoundTripsModeledDataAndPreservesPrecision)
     {
         const auto& original = data.tracks.front().segments.front().points[i];
         const auto& restored = track.segments.front().points[i];
-        EXPECT_DOUBLE_EQ(restored.latitude, original.latitude);
-        EXPECT_DOUBLE_EQ(restored.longitude, original.longitude);
+        EXPECT_EQ(restored.latitude, original.latitude);
+        EXPECT_EQ(restored.longitude, original.longitude);
         EXPECT_EQ(restored.elevation, original.elevation);
         EXPECT_EQ(restored.time, original.time);
     }
@@ -72,6 +73,86 @@ TEST(GPXWriter, RoundTripsModeledDataAndPreservesPrecision)
                       << 'Z';
     EXPECT_NE(xml.value->find(expectedTimestamp.str()), std::string::npos);
     EXPECT_FALSE(track.totalDistance);
+}
+
+TEST(GPXWriter, ExportsShortestRoundTripDecimals)
+{
+    const std::string point =
+        R"(<trkpt lat="47.370157" lon="8.539836"><ele>408.8</ele><time>2024-06-01T07:00:00Z</time></trkpt>)";
+    const auto original = GPXParser{}.parse("<gpx><trk><trkseg>" + point + "</trkseg></trk></gpx>");
+    ASSERT_TRUE(original.success) << original.errorMessage;
+    const auto xml = GPXWriter{}.serialize(*original.value);
+    ASSERT_TRUE(xml.success) << xml.errorMessage;
+    EXPECT_NE(
+        xml.value->find(
+            R"(<trkpt lat="47.370157" lon="8.539836"><ele>408.80</ele><time>2024-06-01T07:00:00Z</time></trkpt>)"),
+        std::string::npos);
+    const auto parsed = GPXParser{}.parse(*xml.value);
+    ASSERT_TRUE(parsed.success) << parsed.errorMessage;
+    const auto& expected = original.value->tracks.front().segments.front().points.front();
+    const auto& restored = parsed.value->tracks.front().segments.front().points.front();
+    EXPECT_EQ(restored.latitude, expected.latitude);
+    EXPECT_EQ(restored.longitude, expected.longitude);
+    EXPECT_EQ(restored.elevation, expected.elevation);
+}
+
+TEST(GPXWriter, PadsDecimalsWithoutRoundingAdditionalDigits)
+{
+    auto data = sampleData();
+    auto& points = data.tracks.front().segments.front().points;
+    points = {TrackPoint(47.370190, 8.539584, 409.0), TrackPoint(0, -0.0, -0.0),
+              TrackPoint(47.370190123, 8.539584123, 409.123)};
+    const auto xml = GPXWriter{}.serialize(data);
+    ASSERT_TRUE(xml.success) << xml.errorMessage;
+    EXPECT_NE(xml.value->find(R"(<trkpt lat="47.370190" lon="8.539584"><ele>409.00</ele></trkpt>)"),
+              std::string::npos);
+    EXPECT_NE(xml.value->find(R"(<trkpt lat="0.000000" lon="-0.000000"><ele>-0.00</ele></trkpt>)"),
+              std::string::npos);
+    EXPECT_NE(xml.value->find(
+                  R"(<trkpt lat="47.370190123" lon="8.539584123"><ele>409.123</ele></trkpt>)"),
+              std::string::npos);
+    const auto parsed = GPXParser{}.parse(*xml.value);
+    ASSERT_TRUE(parsed.success) << parsed.errorMessage;
+    const auto& restored = parsed.value->tracks.front().segments.front().points;
+    ASSERT_EQ(restored.size(), points.size());
+    for (std::size_t i = 0; i < points.size(); ++i)
+    {
+        EXPECT_EQ(restored[i].latitude, points[i].latitude);
+        EXPECT_EQ(restored[i].longitude, points[i].longitude);
+        EXPECT_EQ(restored[i].elevation, points[i].elevation);
+        EXPECT_EQ(std::signbit(restored[i].longitude), std::signbit(points[i].longitude));
+        EXPECT_EQ(std::signbit(*restored[i].elevation), std::signbit(*points[i].elevation));
+    }
+}
+
+TEST(GPXWriter, DecimalOutputPreservesExactDoubleValuesWithoutExponents)
+{
+    auto data = sampleData();
+    auto& point = data.tracks.front().segments.front().points.front();
+    for (double value : {0.0, -0.0, 0.1, -408.8, 1e-18, 1e100, std::numeric_limits<double>::min(),
+                         std::numeric_limits<double>::max(), std::nextafter(1.0, 2.0)})
+    {
+        SCOPED_TRACE(value);
+        point.elevation = value;
+        const auto xml = GPXWriter{}.serialize(data);
+        ASSERT_TRUE(xml.success) << xml.errorMessage;
+        const auto element = xml.value->find("<ele>");
+        ASSERT_NE(element, std::string::npos);
+        const auto start = element + 5;
+        const auto end = xml.value->find("</ele>", start);
+        ASSERT_NE(end, std::string::npos);
+        const auto decimal = xml.value->substr(start, end - start);
+        EXPECT_EQ(decimal.find_first_not_of("0123456789-."), std::string::npos);
+        const auto dot = decimal.find('.');
+        ASSERT_NE(dot, std::string::npos);
+        EXPECT_GE(decimal.size() - dot - 1, 2u);
+        const auto parsed = GPXParser{}.parse(*xml.value);
+        ASSERT_TRUE(parsed.success) << parsed.errorMessage;
+        const auto& restored = parsed.value->tracks.front().segments.front().points.front();
+        ASSERT_TRUE(restored.elevation.has_value());
+        EXPECT_EQ(*restored.elevation, value);
+        EXPECT_EQ(std::signbit(*restored.elevation), std::signbit(value));
+    }
 }
 
 class CommaDecimal : public std::numpunct<char>

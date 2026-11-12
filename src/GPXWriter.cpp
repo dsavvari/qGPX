@@ -4,11 +4,11 @@
 #include <expat.h>
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
-#include <limits>
 #include <locale>
 #include <sstream>
 
@@ -57,16 +57,36 @@ std::string escapeXml(const std::string& text)
     return result;
 }
 
-std::string decimal(double value)
+std::string padDecimal(std::string text, std::size_t minimumPlaces)
 {
-    std::ostringstream output;
-    output.imbue(std::locale::classic());
-    output << std::setprecision(std::numeric_limits<double>::max_digits10) << value;
-    std::string text = output.str();
+    auto dot = text.find('.');
+    if (dot == std::string::npos)
+    {
+        dot = text.size();
+        text += '.';
+    }
+    const auto places = text.size() - dot - 1;
+    if (places < minimumPlaces)
+    {
+        text.append(minimumPlaces - places, '0');
+    }
+    return text;
+}
+
+Result<std::string> decimal(double value, std::size_t minimumPlaces)
+{
+    char buffer[64];
+    const auto [end, error] =
+        std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::general);
+    if (error != std::errc{})
+    {
+        return Result<std::string>::makeFailure("Failed to format decimal value");
+    }
+    std::string text(buffer, end);
     const auto exponentPosition = text.find_first_of("eE");
     if (exponentPosition == std::string::npos)
     {
-        return text;
+        return Result<std::string>::makeSuccess(padDecimal(std::move(text), minimumPlaces));
     }
 
     // GPX's xsd:decimal does not permit scientific notation.
@@ -92,7 +112,8 @@ std::string decimal(double value)
     {
         digits.insert(decimalPosition, ".");
     }
-    return (negative ? "-" : "") + digits;
+    return Result<std::string>::makeSuccess(
+        padDecimal((negative ? "-" : "") + digits, minimumPlaces));
 }
 
 Result<std::string> timestamp(std::chrono::system_clock::time_point time)
@@ -169,11 +190,26 @@ Result<std::string> GPXWriter::serialize(const GPXData& data) const
                 {
                     return Result<std::string>::makeFailure("Elevation must be finite");
                 }
-                output << "      <trkpt lat=\"" << decimal(point.latitude) << "\" lon=\""
-                       << decimal(point.longitude) << "\">";
+                const auto latitude = decimal(point.latitude, 6);
+                if (!latitude.success)
+                {
+                    return Result<std::string>::makeFailure(latitude.errorMessage);
+                }
+                const auto longitude = decimal(point.longitude, 6);
+                if (!longitude.success)
+                {
+                    return Result<std::string>::makeFailure(longitude.errorMessage);
+                }
+                output << "      <trkpt lat=\"" << *latitude.value << "\" lon=\""
+                       << *longitude.value << "\">";
                 if (point.elevation)
                 {
-                    output << "<ele>" << decimal(*point.elevation) << "</ele>";
+                    const auto elevation = decimal(*point.elevation, 2);
+                    if (!elevation.success)
+                    {
+                        return Result<std::string>::makeFailure(elevation.errorMessage);
+                    }
+                    output << "<ele>" << *elevation.value << "</ele>";
                 }
                 if (point.time)
                 {
