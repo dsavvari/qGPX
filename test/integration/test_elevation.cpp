@@ -31,10 +31,10 @@ int main(int argc, char** argv)
 
     GPXData gpxData = result.value.value();
 
-    // Analyze the data
+    // Analyse the data
     for (auto& track : gpxData.tracks)
     {
-        GPXAnalytics::analyzeTrack(track);
+        GPXAnalytics::analyseTrack(track);
 
         std::cout << "Track: " << track.name << std::endl;
         std::cout << "  Distance: " << std::fixed << std::setprecision(2)

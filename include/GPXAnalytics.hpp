@@ -59,15 +59,15 @@ public:
     /// @return Duration in seconds, or nullopt if time data is missing
     static std::optional<std::chrono::seconds> calculateDuration(const Track& track);
 
-    /// Analyze and populate computed properties for a track
+    /// Analyse and populate computed properties for a track
     /// This calculates distance, elevation, and duration for all segments and the track
-    /// @param track Track to analyze (modified in place)
-    static void analyzeTrack(Track& track);
+    /// @param track Track to analyse (modified in place)
+    static void analyseTrack(Track& track);
 
-    /// Analyze and populate computed properties for GPX data
-    /// This analyzes all tracks in the GPX data
-    /// @param gpxData GPX data to analyze (modified in place)
-    static void analyzeGPXData(GPXData& gpxData);
+    /// Analyse and populate computed properties for GPX data
+    /// This analyses all tracks in the GPX data
+    /// @param gpxData GPX data to analyse (modified in place)
+    static void analyseGPXData(GPXData& gpxData);
 
 private:
     static constexpr double EarthRadiusMeters = 6371000.0;

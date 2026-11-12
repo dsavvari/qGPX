@@ -229,12 +229,12 @@ void gpxSegmentGetPoint(GPXSegmentHandle handle, uint32_t index, double* outLat,
 // MARK: - Analytics Functions
 // ============================================================================
 
-void gpxAnalyze(GPXDataHandle handle)
+void gpxAnalyse(GPXDataHandle handle)
 {
     if (!handle)
         return;
     auto* data = reinterpret_cast<GPXData*>(handle);
-    GPXAnalytics::analyzeGPXData(*data);
+    GPXAnalytics::analyseGPXData(*data);
 }
 
 double gpxCalculateDistance(double lat1, double lon1, double lat2, double lon2)

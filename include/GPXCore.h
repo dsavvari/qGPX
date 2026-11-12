@@ -97,8 +97,8 @@ extern "C"
     // MARK: - Analytics Functions
     // ============================================================================
 
-    /// Analyze GPX data and populate computed properties (distance, elevation, duration)
-    void gpxAnalyze(GPXDataHandle handle);
+    /// Analyse GPX data and populate computed properties (distance, elevation, duration)
+    void gpxAnalyse(GPXDataHandle handle);
 
     /// Calculate distance between two points (Haversine formula)
     /// @return Distance in meters
