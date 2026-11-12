@@ -8,6 +8,7 @@ add_library(qGPX STATIC
     src/GPXAnalytics.cpp
     src/GPXCore.cpp
     src/GPXParser.cpp
+    src/GPXWriter.cpp
 )
 add_library(qGPX::qGPX ALIAS qGPX)
 target_compile_features(qGPX PUBLIC cxx_std_17)
@@ -73,6 +74,7 @@ install(FILES
     include/GPXModels.hpp
     include/GPXParser.hpp
     include/GPXAnalytics.hpp
+    include/GPXWriter.hpp
     include/GPXCore.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/qGPX
 )

@@ -27,6 +27,23 @@ extern "C"
     /// @return GPXDataHandle on success, NULL on failure
     GPXDataHandle gpxParse(const char* xmlContent, char** outError);
 
+    /// Load a GPX file from an accessible local path.
+    /// Returns NULL on failure; outError receives a caller-owned error (free with gpxStringFree).
+    GPXDataHandle gpxParseFile(const char* filePath, char** outError);
+
+    /// Serialize modeled fields as UTF-8 GPX 1.1 (not a lossless copy).
+    /// Returns a caller-owned string (free with gpxStringFree), or NULL on failure.
+    /// outError receives a caller-owned error on failure, or NULL on success.
+    char* gpxSerialize(GPXDataHandle handle, char** outError);
+
+    /// Validate and overwrite a local GPX file; false on failure, true on success.
+    /// Not atomic: write failure can leave a partial file.
+    /// outError receives a caller-owned error (free with gpxStringFree), or NULL on success.
+    bool gpxSaveFile(GPXDataHandle handle, const char* filePath, char** outError);
+
+    /// Free strings returned by this API, including parser errors. NULL is safe.
+    void gpxStringFree(char* text);
+
     /// Free GPXData handle and associated memory
     void gpxDataFree(GPXDataHandle handle);
 
@@ -42,8 +59,14 @@ extern "C"
     GPXTrackHandle gpxDataGetTrack(GPXDataHandle handle, uint32_t index);
 
     /// Get creator string from GPX data
-    /// @return String (borrowed reference, valid until handle is freed)
+    /// @return String (borrowed reference, valid until creator is changed or handle is freed)
     const char* gpxDataGetCreator(GPXDataHandle handle);
+
+    /// Copy the exporting software's name into GPX data; caller retains ownership of creator.
+    /// Empty string selects the writer's "qGPX" fallback; XML text is validated on serialization.
+    /// Returns false for NULL handle/creator, leaving data unchanged.
+    /// outError receives a caller-owned error (free with gpxStringFree), or NULL on success.
+    bool gpxDataSetCreator(GPXDataHandle handle, const char* creator, char** outError);
 
     // ---- Track functions ----
 

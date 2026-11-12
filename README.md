@@ -1,6 +1,6 @@
 # qGPX
 
-qGPX is a C++17 library for parsing GPX track data and calculating track distance,
+qGPX is a C++17 library for loading and saving GPX track data and calculating track distance,
 elevation gain and loss, and duration. It provides both a C++ API and a C API.
 It also derives adjacent-point and maximum speed from coordinates and timestamps.
 
@@ -46,7 +46,7 @@ cmake -S . -B build -DBUILD_TESTS=OFF -DBUILD_VIEWER=OFF
 cmake --build build --parallel
 ```
 
-The `qGPX` target contains only the parser, analytics, and C API. The optional
+The `qGPX` target contains only the parser, writer, analytics, and C API. The optional
 `qgpx-viewer` executable owns `main()` and links the library through a separate
 HTTP adapter. All viewer source lives under `viewer/`, not `src/`.
 
@@ -83,6 +83,11 @@ target_link_libraries(my_app PRIVATE qGPX::qGPX)
 Tests default to off when qGPX is a subdirectory; the viewer always defaults to
 off. Explicit `BUILD_TESTS` and `BUILD_VIEWER` settings override these defaults.
 When `BUILD_TESTS=OFF`, neither unit nor integration test targets are added.
+
+## Usage and limitations
+
+See [Usage and limitations](docs/USAGE_AND_LIMITATIONS.md) for loading and saving
+GPX, output compatibility, C API ownership, and iOS integration guidance.
 
 ## Code formatting
 
@@ -139,8 +144,6 @@ Open <http://127.0.0.1:8080>. The optional external basemap is disabled by defau
 `BUILD_VIEWER` defaults to `OFF`; core-only consumers do not need Node or the
 viewer dependencies. See [third-party licenses](third_party/README.md) for
 dependency sources and notices.
-
-
 
 ## Releasing
 

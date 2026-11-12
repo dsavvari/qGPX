@@ -418,16 +418,28 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
 
 Result<GPXData> GPXParser::parseFile(const std::string& filePath)
 {
+    if (filePath.empty() || filePath.find('\0') != std::string::npos)
+    {
+        return Result<GPXData>::makeFailure("File path is empty or contains a null character");
+    }
     // Read file content
-    std::ifstream file(filePath);
+    std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open())
     {
         return Result<GPXData>::makeFailure("Failed to open file: " + filePath);
     }
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string xmlContent = buffer.str();
+    std::string xmlContent;
+    char buffer[4096];
+    while (file.read(buffer, sizeof(buffer)))
+    {
+        xmlContent.append(buffer, sizeof(buffer));
+    }
+    xmlContent.append(buffer, static_cast<std::size_t>(file.gcount()));
+    if (file.bad() || !file.eof())
+    {
+        return Result<GPXData>::makeFailure("Failed to read file: " + filePath);
+    }
 
     return parse(xmlContent);
 }

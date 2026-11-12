@@ -100,7 +100,7 @@ struct GPXData
     }
 };
 
-/// Result type for parsing operations
+/// Result type for GPX operations
 template <typename T> struct Result
 {
     bool success;
