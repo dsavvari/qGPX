@@ -32,9 +32,12 @@ Rebuild the frontend after changing UI source, then refresh the page.
 CMake does not invoke npm, fetch these vendored headers, or require Node for a
 core-only build. `BUILD_VIEWER` defaults to `OFF`.
 
+For troubleshooting, see [Common issues and how-to guides](../docs/COMMON_ISSUES_AND_HOW_TO.md).
+
 ## First iteration
 
 - File picker or drag/drop, one `.gpx` file at a time, at most **10 MiB**.
+- Download all loaded tracks as GPX 1.1 through the core writer.
 - Track and segment selection, interactive map with fit/zoom/pan.
 - Distance, elevation gain/loss, duration, and sample coverage from the library.
 - Derived travel speed in the replay and maximum speed for the selected track or
@@ -47,7 +50,7 @@ core-only build. `BUILD_VIEWER` defaults to `OFF`.
 - Optional OpenStreetMap tiles, **off by default**. With tiles disabled, assets
   and track processing need no internet connection after the build.
 
-Uploads are analysed in memory, not saved. There is no database, account system,
+Uploads are analysed and exported in memory, not saved on the server. There is no database, account system,
 or arbitrary server-side file-path API. The server binds to `127.0.0.1`, rejects
 foreign Host/Origin headers, and serves the frontend and API from one origin.
 Do not expose it through a public proxy; deployment/authentication is out of scope.
@@ -62,6 +65,24 @@ Elevation gain/loss use adjacent points with elevation; incomplete coverage is
 shown. Duration uses the first and last available timestamps, including gaps
 between segments, rather than summing moving time. Missing or invalid timestamps
 appear unavailable according to the current core parser's behavior.
+
+## Downloading GPX
+
+After a successful upload, **Download GPX** downloads `<original-name>-export.gpx`.
+The export includes **all tracks and segments**, regardless of the current selection.
+The viewer retains the last successfully loaded file in browser memory and sends it
+to `/api/export` on demand; the server parses it and uses the core GPX 1.1 writer.
+The output creator is `qGPX Track lab`.
+
+This is a modeled-data export, not a copy of the original file: unsupported metadata,
+waypoints, routes and extensions are omitted. Coordinates, available elevations and
+timestamps are preserved by the core model; analytics and replay positions are not
+written. See [Usage and limitations](../docs/USAGE_AND_LIMITATIONS.md) for output
+validation rules and other limitations.
+
+A failed upload leaves the previous file available for download. Export errors are
+displayed without clearing the loaded track. Downloads are initiated by the browser;
+the viewer cannot confirm that the file was saved to disk.
 
 ## Replay
 

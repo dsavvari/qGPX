@@ -3,6 +3,7 @@
 
 #include "GPXAnalytics.hpp"
 #include "GPXParser.hpp"
+#include "GPXWriter.hpp"
 
 #include <json.hpp>
 
@@ -10,6 +11,7 @@
 #include <cmath>
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 
 namespace qGpx
@@ -25,6 +27,24 @@ void error(httplib::Response& response, int status, const std::string& message)
 {
     response.status = status;
     response.set_content(json{{"error", message}}.dump(), "application/json");
+}
+
+std::optional<core::GPXData> parseUpload(const httplib::Request& request,
+                                         httplib::Response& response)
+{
+    if (request.get_header_value("Content-Type") != "application/gpx+xml")
+    {
+        error(response, 415, "Send GPX XML with Content-Type: application/gpx+xml");
+        return std::nullopt;
+    }
+    core::GPXParser parser;
+    auto result = parser.parse(request.body);
+    if (!result.success)
+    {
+        error(response, 422, result.errorMessage);
+        return std::nullopt;
+    }
+    return std::move(result.value);
 }
 
 double finite(double value)
@@ -166,26 +186,38 @@ bool configureServer(httplib::Server& server, const std::string& assetDirectory)
     server.Post("/api/analyse",
                 [](const httplib::Request& request, httplib::Response& response)
                 {
-                    if (request.get_header_value("Content-Type") != "application/gpx+xml")
+                    auto data = parseUpload(request, response);
+                    if (!data)
                     {
-                        error(response, 415, "Send GPX XML with Content-Type: application/gpx+xml");
-                        return;
-                    }
-                    core::GPXParser parser;
-                    auto result = parser.parse(request.body);
-                    if (!result.success)
-                    {
-                        error(response, 422, result.errorMessage);
                         return;
                     }
                     try
                     {
-                        response.set_content(serialize(*result.value).dump(), "application/json");
+                        response.set_content(serialize(*data).dump(), "application/json");
                     }
                     catch (const std::domain_error& cause)
                     {
                         error(response, 422, cause.what());
                     }
+                });
+    server.Post("/api/export",
+                [](const httplib::Request& request, httplib::Response& response)
+                {
+                    auto data = parseUpload(request, response);
+                    if (!data)
+                    {
+                        return;
+                    }
+                    data->creator = "qGPX Track lab";
+                    const auto result = core::GPXWriter{}.serialize(*data);
+                    if (!result.success)
+                    {
+                        error(response, 422, result.errorMessage);
+                        return;
+                    }
+                    response.set_header("Content-Disposition",
+                                        "attachment; filename=\"track.gpx\"");
+                    response.set_content(*result.value, "application/gpx+xml");
                 });
     return true;
 }

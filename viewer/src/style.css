@@ -21,6 +21,7 @@ p { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 small { font-size: 11px; color: #526e7c; }
 #status { color: #526e7c; font-size: 12px; }
 #error { color: #8b2131; background: #fff0f1; border: 1px solid #edc5cd; padding: 10px; border-radius: 6px; }
+#download-note { color: #526e7c; font-size: 11px; }
 .controls > label { display: block; margin: 20px 0 7px; font-size: 12px; font-weight: 700; color: #526e7c; }
 select { width: 100%; padding: 9px; border: 1px solid #ccdce1; background: #fff; border-radius: 5px; color: #172f42; }
 #description { color: #526e7c; }
