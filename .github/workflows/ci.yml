@@ -25,7 +25,7 @@ jobs:
       - name: Check formatting
         run: |
           if command -v clang-format &> /dev/null; then
-            clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/*.cpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
+            clang-format --dry-run --Werror include/*.h include/*.hpp src/*.cpp viewer/server/*.cpp viewer/server/*.hpp test/unit/*.cpp test/viewer/*.cpp test/integration/*.cpp
           else
             echo "Warning: clang-format not available, skipping format check"
           fi
