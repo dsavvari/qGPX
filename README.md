@@ -14,7 +14,7 @@ Its core features are:
 - Parse GPX XML strings and local files into tracks, segments, and points with timestamps and sensor data ([parser API](include/GPXParser.hpp)).
 - Calculate track distance, elevation gain and loss, duration, and adjacent-point or maximum speed ([analytics API](include/GPXAnalytics.hpp)).
 - Serialize and save GPX 1.1 data, including supported Garmin measurements and retained extension elements ([writer API](include/GPXWriter.hpp)).
-- Access and analyze track data, parse and save files, and serialize GPX from C ([C API](include/GPXCore.h)).
+- Access and analyse track data, parse and save files, and serialize GPX from C ([C API](include/GPXCore.h)).
 
 ## Dependencies
 
