@@ -459,6 +459,147 @@ TEST(GPXParser, IgnoresUnknownNamespaces)
     EXPECT_EQ(result.value.value().tracks[0].segments[0].pointCount(), 1);
 }
 
+TEST(GPXParser, ReadsGarminMeasurementsAndRetainsUnknownExtensionTree)
+{
+    GPXParser parser;
+    const char* gpx = R"(<?xml version="1.0"?>
+<g:gpx xmlns:g="http://www.topografix.com/GPX/1/1"
+       xmlns:t="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"
+       xmlns:v="urn:vendor:test" creator="test">
+  <g:trk><g:trkseg><g:trkpt lat="45" lon="6">
+    <g:extensions><t:TrackPointExtension><t:atemp>-3.5</t:atemp><t:hr>120</t:hr><t:cad>0</t:cad><t:Extensions><v:Power v:unit="W">250</v:Power></t:Extensions></t:TrackPointExtension><v:unknown v:flag="kept"><v:child/>before<em>after</em></v:unknown></g:extensions>
+  </g:trkpt></g:trkseg></g:trk>
+</g:gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    ASSERT_TRUE(result.success) << result.errorMessage;
+    const auto& point = result.value->tracks[0].segments[0].points[0];
+    ASSERT_TRUE(point.heartRateBpm);
+    EXPECT_EQ(*point.heartRateBpm, 120);
+    ASSERT_TRUE(point.cadenceRpm);
+    EXPECT_EQ(*point.cadenceRpm, 0);
+    ASSERT_TRUE(point.temperatureCelsius);
+    EXPECT_DOUBLE_EQ(*point.temperatureCelsius, -3.5);
+    ASSERT_EQ(point.extensions.size(), 2u);
+    const auto& retained = point.extensions[1];
+    EXPECT_EQ(retained.namespaceUri, "urn:vendor:test");
+    EXPECT_EQ(retained.localName, "unknown");
+    ASSERT_EQ(retained.attributes.size(), 1u);
+    EXPECT_EQ(retained.attributes[0].namespaceUri, "urn:vendor:test");
+    EXPECT_EQ(retained.attributes[0].localName, "flag");
+    EXPECT_EQ(retained.attributes[0].value, "kept");
+    ASSERT_EQ(retained.children.size(), 3u);
+    EXPECT_EQ(retained.children[0].localName, "child");
+    EXPECT_EQ(retained.children[1].kind, ExtensionNode::Kind::Text);
+    EXPECT_EQ(retained.children[1].text, "before");
+    EXPECT_EQ(retained.children[2].localName, "em");
+    ASSERT_EQ(retained.children[2].children.size(), 1u);
+    EXPECT_EQ(retained.children[2].children[0].text, "after");
+}
+
+TEST(GPXParser, ReadsTemperatureFromGarminGpxExtensionsV3)
+{
+    const auto result = GPXParser{}.parse(
+        R"(<gpx xmlns:g="http://www.garmin.com/xmlschemas/GpxExtensions/v3" xmlns:v="urn:vendor"><trk><trkseg><trkpt lat="45" lon="6"><extensions><g:TrackPointExtension><g:Temperature>18.75</g:Temperature><g:Extensions><v:PowerInWatts>250</v:PowerInWatts></g:Extensions></g:TrackPointExtension></extensions></trkpt></trkseg></trk></gpx>)");
+
+    ASSERT_TRUE(result.success) << result.errorMessage;
+    const auto& point = result.value->tracks[0].segments[0].points[0];
+    ASSERT_TRUE(point.temperatureCelsius);
+    EXPECT_DOUBLE_EQ(*point.temperatureCelsius, 18.75);
+    EXPECT_FALSE(point.heartRateBpm);
+    ASSERT_EQ(point.extensions.size(), 1u);
+}
+
+TEST(GPXParser, MatchesGarminMeasurementsByNamespaceUriNotPrefixOrLocalNameAlone)
+{
+    GPXParser parser;
+    const char* gpx = R"(<g:gpx xmlns:g="http://www.topografix.com/GPX/1/1"
+ xmlns:a="http://www.garmin.com/xmlschemas/TrackPointExtension/v2"
+ xmlns:b="urn:lookalike"><g:trk><g:trkseg><g:trkpt lat="45" lon="6">
+ <g:extensions><a:TrackPointExtension><a:hr xmlns:a="urn:lookalike">120</a:hr>
+ <b:cad>90</b:cad></a:TrackPointExtension></g:extensions>
+ </g:trkpt></g:trkseg></g:trk></g:gpx>)";
+
+    auto result = parser.parse(gpx);
+
+    ASSERT_TRUE(result.success) << result.errorMessage;
+    const auto& point = result.value->tracks[0].segments[0].points[0];
+    EXPECT_FALSE(point.heartRateBpm);
+    EXPECT_FALSE(point.cadenceRpm);
+    ASSERT_EQ(point.extensions.size(), 1u);
+    const auto& extension = point.extensions[0];
+    EXPECT_EQ(extension.namespaceUri, "http://www.garmin.com/xmlschemas/TrackPointExtension/v2");
+    ASSERT_GE(extension.children.size(), 2u);
+    EXPECT_EQ(extension.children[0].namespaceUri, "urn:lookalike");
+
+    const auto wrongGpxNamespace = parser.parse(
+        R"(<x:gpx xmlns:x="urn:not-gpx"><x:trk><x:trkseg><x:trkpt lat="45" lon="6"/></x:trkseg></x:trk></x:gpx>)");
+    EXPECT_FALSE(wrongGpxNamespace.success);
+}
+
+TEST(GPXParser, AcceptsGpxVersion10Namespace)
+{
+    const auto result = GPXParser{}.parse(
+        R"(<g:gpx xmlns:g="http://www.topografix.com/GPX/1/0"><g:trk><g:name>legacy</g:name><g:trkseg><g:trkpt lat="45" lon="6"/></g:trkseg></g:trk></g:gpx>)");
+
+    ASSERT_TRUE(result.success) << result.errorMessage;
+    ASSERT_EQ(result.value->tracks.size(), 1u);
+    EXPECT_EQ(result.value->tracks[0].name, "legacy");
+    ASSERT_EQ(result.value->tracks[0].segments.size(), 1u);
+    ASSERT_EQ(result.value->tracks[0].segments[0].points.size(), 1u);
+}
+
+TEST(GPXParser, RejectsInvalidAndDuplicateGarminMeasurements)
+{
+    GPXParser parser;
+    const std::vector<std::pair<std::string, std::string>> cases = {
+        {"<t:hr>0</t:hr>", "Invalid Garmin heart rate value"},
+        {"<t:cad>255</t:cad>", "Invalid Garmin cadence value"},
+        {"<t:atemp>NaN</t:atemp>", "Invalid Garmin temperature value"},
+        {"<t:hr>100</t:hr><t:hr>101</t:hr>", "Duplicate Garmin heart rate value"},
+        {"<t:hr><v:value>100</v:value></t:hr>", "Malformed Garmin sensor value"}};
+    for (const auto& testCase : cases)
+    {
+        SCOPED_TRACE(testCase.first);
+        const auto xml =
+            R"(<gpx xmlns:t="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:v="urn:v"><trk><trkseg><trkpt lat="45" lon="6"><extensions><t:TrackPointExtension>)" +
+            testCase.first +
+            R"(</t:TrackPointExtension></extensions></trkpt></trkseg></trk></gpx>)";
+        const auto result = parser.parse(xml);
+        EXPECT_FALSE(result.success);
+        EXPECT_EQ(result.errorMessage, testCase.second);
+    }
+}
+
+TEST(GPXParser, EnforcesExtensionDepthAndSizeLimits)
+{
+    GPXParser parser;
+    std::string deepContent;
+    for (int i = 0; i < 33; ++i)
+    {
+        deepContent += "<v:x>";
+    }
+    for (int i = 0; i < 33; ++i)
+    {
+        deepContent += "</v:x>";
+    }
+    auto deep =
+        parser.parse(R"(<gpx xmlns:v="urn:v"><trk><trkseg><trkpt lat="45" lon="6"><extensions>)" +
+                     deepContent + R"(</extensions></trkpt></trkseg></trk></gpx>)");
+    EXPECT_FALSE(deep.success);
+    EXPECT_NE(deep.errorMessage.find("maximum depth of 32"), std::string::npos);
+
+    const std::string largeValue(600 * 1024, 'x');
+    const std::string largeExtension =
+        R"(<extensions><v:x>)" + largeValue + R"(</v:x></extensions>)";
+    auto oversized =
+        parser.parse(R"(<gpx xmlns:v="urn:v"><trk><trkseg><trkpt lat="45" lon="6">)" +
+                     largeExtension + largeExtension + R"(</trkpt></trkseg></trk></gpx>)");
+    EXPECT_FALSE(oversized.success);
+    EXPECT_NE(oversized.errorMessage.find("1 MiB limit"), std::string::npos);
+}
+
 TEST(GPXParser, IgnoresDataTagsOutsideTracks)
 {
     GPXParser parser;

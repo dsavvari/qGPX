@@ -271,6 +271,39 @@ double gpxSegmentGetPointSpeed(GPXSegmentHandle handle, uint32_t index)
     return GPXAnalytics::calculateSpeed(points[index - 1], points[index]).value_or(-1.0);
 }
 
+bool gpxSegmentGetPointHeartRate(GPXSegmentHandle handle, uint32_t index, uint8_t* outBpm)
+{
+    if (!handle || !outBpm)
+        return false;
+    const auto& points = reinterpret_cast<TrackSegment*>(handle)->points;
+    if (index >= points.size() || !points[index].heartRateBpm)
+        return false;
+    *outBpm = *points[index].heartRateBpm;
+    return true;
+}
+
+bool gpxSegmentGetPointCadence(GPXSegmentHandle handle, uint32_t index, uint8_t* outRpm)
+{
+    if (!handle || !outRpm)
+        return false;
+    const auto& points = reinterpret_cast<TrackSegment*>(handle)->points;
+    if (index >= points.size() || !points[index].cadenceRpm)
+        return false;
+    *outRpm = *points[index].cadenceRpm;
+    return true;
+}
+
+bool gpxSegmentGetPointTemperature(GPXSegmentHandle handle, uint32_t index, double* outCelsius)
+{
+    if (!handle || !outCelsius)
+        return false;
+    const auto& points = reinterpret_cast<TrackSegment*>(handle)->points;
+    if (index >= points.size() || !points[index].temperatureCelsius)
+        return false;
+    *outCelsius = *points[index].temperatureCelsius;
+    return true;
+}
+
 uint32_t gpxSegmentGetPointCount(GPXSegmentHandle handle)
 {
     if (!handle)

@@ -40,11 +40,15 @@ For troubleshooting, see [Common issues and how-to guides](../docs/COMMON_ISSUES
 - Download all loaded tracks as GPX 1.1 through the core writer.
 - Track and segment selection, interactive map with fit/zoom/pan.
 - Distance, elevation gain/loss, duration, and sample coverage from the library.
+- Aligned heart-rate, cadence, and temperature profiles for the selected track or
+  segment, with independent scales and gaps for missing samples or segment breaks.
+  Other imported GPX extensions are preserved for export but are not interpreted.
 - Derived travel speed in the replay and maximum speed for the selected track or
   segment, displayed in km/h.
 - Elevation profile with gaps at segment boundaries and missing elevations.
 - 2D replay: play/pause, restart, speed selection, timeline scrubbing, optional
-  follow-camera, and a synchronised elevation-profile cursor.
+  follow-camera, and synchronised dashed cursors across the elevation and sensor
+  profiles.
 - Visible upload/parser errors; a failed upload leaves the previous view intact.
 - Missing elevation/time values remain distinct from zero measurements.
 - Optional OpenStreetMap tiles, **off by default**. With tiles disabled, assets
@@ -75,9 +79,9 @@ to `/api/export` on demand; the server parses it and uses the core GPX 1.1 write
 The output creator is `qGPX Track lab`.
 
 This is a modeled-data export, not a copy of the original file: unsupported metadata,
-waypoints, routes and extensions are omitted. Coordinates, available elevations and
-timestamps are preserved by the core model; analytics and replay positions are not
-written. See [Usage and limitations](../docs/USAGE_AND_LIMITATIONS.md) for output
+waypoints and routes are omitted. Recognized Garmin sensor values and retained GPX
+extension trees are preserved by the core model; analytics and replay positions are
+not written. See [Usage and limitations](../docs/USAGE_AND_LIMITATIONS.md) for output
 validation rules and other limitations.
 
 A failed upload leaves the previous file available for download. Export errors are
@@ -158,6 +162,9 @@ A successful response is JSON:
         "latitude": 38,
         "longitude": 23,
         "elevationMeters": null,
+        "heartRateBpm": null,
+        "cadenceRpm": null,
+        "temperatureCelsius": null,
         "timeUnixMs": null,
         "speedMetersPerSecond": null,
         "distanceMeters": 0
@@ -171,6 +178,10 @@ Point distance is cumulative **within its track**, without connecting separate
 segments; it resets for each track. Coordinates are degrees, lengths/elevations
 are metres, durations are seconds, and timestamps are Unix milliseconds.
 Missing point elevation/time and unavailable duration are JSON `null`.
+`heartRateBpm`, `cadenceRpm`, and `temperatureCelsius` are the recognized Garmin
+point measurements, or `null` when unavailable. The UI plots available sensor
+measurements against a shared distance axis, using independent vertical scales to
+avoid mixing units.
 `speedMetersPerSecond` describes the interval **ending at** that point and is
 `null` at each segment's first point or for an invalid interval.
 `maxSpeedMetersPerSecond` is available on both tracks and segments; it is `null`

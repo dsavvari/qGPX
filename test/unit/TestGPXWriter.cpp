@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
@@ -73,6 +74,82 @@ TEST(GPXWriter, RoundTripsModeledDataAndPreservesPrecision)
                       << 'Z';
     EXPECT_NE(xml.value->find(expectedTimestamp.str()), std::string::npos);
     EXPECT_FALSE(track.totalDistance);
+}
+
+TEST(GPXWriter, PreservesExtensionsAtEveryScopeAndSynchronizesGarminEdits)
+{
+    const auto source = R"(<g:gpx xmlns:g="http://www.topografix.com/GPX/1/1"
+ xmlns:t="http://www.garmin.com/xmlschemas/TrackPointExtension/v2"
+ xmlns:v="urn:vendor:test"><g:extensions><v:root v:flag="root"><v:a/><v:b>text</v:b></v:root></g:extensions>
+ <g:trk><g:extensions><v:track v:flag="track"/></g:extensions><g:trkseg>
+ <g:extensions><v:segment/></g:extensions><g:trkpt lat="45" lon="6"><g:extensions><t:TrackPointExtension><t:hr>120</t:hr><t:cad>90</t:cad><t:atemp>-2.5</t:atemp><t:Extensions><v:Power v:unit="W">250</v:Power></t:Extensions></t:TrackPointExtension><v:opaque v:flag="point"><v:first/>before<v:second>after</v:second></v:opaque></g:extensions></g:trkpt></g:trkseg></g:trk></g:gpx>)";
+    auto parsed = GPXParser{}.parse(source);
+    ASSERT_TRUE(parsed.success) << parsed.errorMessage;
+    ASSERT_EQ(parsed.value->extensions.size(), 1u);
+    ASSERT_EQ(parsed.value->tracks[0].extensions.size(), 1u);
+    ASSERT_EQ(parsed.value->tracks[0].segments[0].extensions.size(), 1u);
+    auto& point = parsed.value->tracks[0].segments[0].points[0];
+    ASSERT_EQ(point.extensions.size(), 2u);
+    ASSERT_TRUE(point.heartRateBpm);
+    ASSERT_TRUE(point.cadenceRpm);
+    ASSERT_TRUE(point.temperatureCelsius);
+
+    point.heartRateBpm = 130;
+    point.cadenceRpm.reset();
+    point.temperatureCelsius = 4.25;
+    const auto xml = GPXWriter{}.serialize(*parsed.value);
+    ASSERT_TRUE(xml.success) << xml.errorMessage;
+    EXPECT_LT(xml.value->find("<v:track"), xml.value->find("<trkseg>"));
+    const auto restored = GPXParser{}.parse(*xml.value);
+    ASSERT_TRUE(restored.success) << restored.errorMessage;
+    ASSERT_EQ(restored.value->extensions.size(), 1u);
+    ASSERT_EQ(restored.value->tracks[0].extensions.size(), 1u);
+    ASSERT_EQ(restored.value->tracks[0].segments[0].extensions.size(), 1u);
+    const auto& restoredPoint = restored.value->tracks[0].segments[0].points[0];
+    ASSERT_EQ(restoredPoint.extensions.size(), 2u);
+    ASSERT_TRUE(restoredPoint.heartRateBpm);
+    EXPECT_EQ(*restoredPoint.heartRateBpm, 130);
+    EXPECT_FALSE(restoredPoint.cadenceRpm);
+    ASSERT_TRUE(restoredPoint.temperatureCelsius);
+    EXPECT_DOUBLE_EQ(*restoredPoint.temperatureCelsius, 4.25);
+    const auto& opaque = restoredPoint.extensions[1];
+    EXPECT_EQ(opaque.namespaceUri, "urn:vendor:test");
+    ASSERT_EQ(opaque.attributes.size(), 1u);
+    EXPECT_EQ(opaque.attributes[0].value, "point");
+    ASSERT_EQ(opaque.children.size(), 3u);
+    EXPECT_EQ(opaque.children[0].localName, "first");
+    EXPECT_EQ(opaque.children[1].kind, ExtensionNode::Kind::Text);
+    EXPECT_EQ(opaque.children[1].text, "before");
+    EXPECT_EQ(opaque.children[2].localName, "second");
+    ASSERT_EQ(opaque.children[2].children.size(), 1u);
+    EXPECT_EQ(opaque.children[2].children[0].text, "after");
+    EXPECT_NE(xml.value->find("v:Power"), std::string::npos);
+    EXPECT_NE(xml.value->find("xmlns:v=\"urn:vendor:test\""), std::string::npos);
+}
+
+TEST(GPXWriter, PreservesEmptyDefaultNamespaceForExtensionQNameValues)
+{
+    const auto source =
+        R"(<g:gpx xmlns:g="http://www.topografix.com/GPX/1/1" xmlns:v="urn:vendor:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><g:trk><g:trkseg><g:trkpt lat="45" lon="6"><g:extensions><v:x xsi:type="Local"/></g:extensions></g:trkpt></g:trkseg></g:trk></g:gpx>)";
+    const auto parsed = GPXParser{}.parse(source);
+    ASSERT_TRUE(parsed.success) << parsed.errorMessage;
+
+    const auto xml = GPXWriter{}.serialize(*parsed.value);
+    ASSERT_TRUE(xml.success) << xml.errorMessage;
+    const auto extensionStart = xml.value->find("<v:x");
+    ASSERT_NE(extensionStart, std::string::npos);
+    EXPECT_NE(xml.value->find("xmlns=\"\"", extensionStart), std::string::npos);
+
+    const auto restored = GPXParser{}.parse(*xml.value);
+    ASSERT_TRUE(restored.success) << restored.errorMessage;
+    const auto& extension = restored.value->tracks[0].segments[0].points[0].extensions[0];
+    ASSERT_EQ(extension.attributes.size(), 1u);
+    EXPECT_EQ(extension.attributes[0].value, "Local");
+    const auto defaultBinding =
+        std::find_if(extension.inScopeNamespaces.begin(), extension.inScopeNamespaces.end(),
+                     [](const NamespaceBinding& binding) { return binding.prefix.empty(); });
+    ASSERT_NE(defaultBinding, extension.inScopeNamespaces.end());
+    EXPECT_TRUE(defaultBinding->namespaceUri.empty());
 }
 
 TEST(GPXWriter, ExportsShortestRoundTripDecimals)
@@ -380,6 +457,31 @@ TEST(GPXWriter, CApiCreatorRejectsNullInputsWithoutChangingData)
     EXPECT_FALSE(gpxDataSetCreator(nullptr, "My app", nullptr));
     EXPECT_FALSE(gpxDataSetCreator(handle, nullptr, nullptr));
     gpxDataFree(handle);
+}
+
+TEST(GPXWriter, CApiSensorAccessorsReportAvailabilityExplicitly)
+{
+    const char* xml =
+        R"(<gpx xmlns:t="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"><trk><trkseg><trkpt lat="45" lon="6"><extensions><t:TrackPointExtension><t:hr>120</t:hr><t:cad>90</t:cad><t:atemp>-2.5</t:atemp></t:TrackPointExtension></extensions></trkpt></trkseg></trk></gpx>)";
+    char* error = nullptr;
+    const auto data = gpxParse(xml, &error);
+    ASSERT_NE(data, nullptr) << (error ? error : "");
+    EXPECT_EQ(error, nullptr);
+    const auto track = gpxDataGetTrack(data, 0);
+    const auto segment = gpxTrackGetSegment(track, 0);
+    uint8_t bpm = 0;
+    uint8_t rpm = 0;
+    double celsius = 0;
+    EXPECT_TRUE(gpxSegmentGetPointHeartRate(segment, 0, &bpm));
+    EXPECT_EQ(bpm, 120);
+    EXPECT_TRUE(gpxSegmentGetPointCadence(segment, 0, &rpm));
+    EXPECT_EQ(rpm, 90);
+    EXPECT_TRUE(gpxSegmentGetPointTemperature(segment, 0, &celsius));
+    EXPECT_DOUBLE_EQ(celsius, -2.5);
+    EXPECT_FALSE(gpxSegmentGetPointHeartRate(segment, 1, &bpm));
+    EXPECT_FALSE(gpxSegmentGetPointCadence(nullptr, 0, &rpm));
+    EXPECT_FALSE(gpxSegmentGetPointTemperature(segment, 0, nullptr));
+    gpxDataFree(data);
 }
 
 #ifdef __linux__

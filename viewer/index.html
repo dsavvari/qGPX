@@ -20,7 +20,7 @@
         <p id="status" role="status">No file loaded.</p>
         <p id="error" role="alert" hidden></p>
         <button id="download" disabled aria-describedby="download-note">Download GPX</button>
-        <p id="download-note">Exports all loaded tracks as GPX 1.1. Unsupported metadata and extensions are not preserved.</p>
+        <p id="download-note">Exports all loaded tracks as GPX 1.1. Garmin sensor values and retained GPX extensions are preserved.</p>
         <section class="controls">
           <label for="track">Track</label><select id="track" disabled><option>No tracks</option></select>
           <label for="segment">Segment</label><select id="segment" disabled><option>All segments</option></select>
@@ -62,6 +62,11 @@
           <div class="panel-heading"><h2>Elevation profile</h2><span>metres / distance in km</span></div>
           <svg id="profile" viewBox="0 0 900 190" role="img" aria-label="Elevation profile"></svg>
           <p id="profile-note">No elevation data loaded.</p>
+        </section>
+        <section class="sensor-panel" aria-labelledby="sensor-heading">
+          <div class="panel-heading"><h2 id="sensor-heading">Garmin sensor profile</h2><span>shared distance axis; independent scales</span></div>
+          <svg id="sensor-profile" viewBox="0 0 900 390" role="img" aria-label="Garmin heart rate, cadence, and temperature profiles"></svg>
+          <p id="sensor-profile-note">Load a GPX file with supported Garmin sensor data.</p>
         </section>
       </div>
     </main>

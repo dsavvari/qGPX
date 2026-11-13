@@ -37,15 +37,38 @@ Elevation is in meters. Non-finite measurements and invalid UTF-8/XML characters
 are rejected. Standards compliance targets interoperability, but does not guarantee
 acceptance by every application.
 
+## Extensions and sensor measurements
+
+Garmin TrackPointExtension v1 and v2 are recognized by namespace URI, not prefix:
+`hr` is bpm, `cad` is rpm, and `atemp` is degrees Celsius. Garmin GPX Extensions v3
+`TrackPointExtension/Temperature` is also mapped to degrees Celsius. The official
+[Garmin v1](https://www8.garmin.com/xmlschemas/TrackPointExtensionv1.xsd),
+[Garmin v2](https://www8.garmin.com/xmlschemas/TrackPointExtensionv2.xsd) and
+[Garmin v3](https://www8.garmin.com/xmlschemas/GpxExtensionsv3.xsd) schemas do not
+define a cycling-power measurement. Power elements are therefore retained as unknown
+extension XML; **TODO:** add a typed power field and C accessor once a schema and
+fixtures verify its namespace, element path and units.
+
+Unknown extension elements are retained in a namespace-aware C++ tree for GPX root,
+track, segment and point extensions. Namespace URIs, qualified attributes, text and
+child order are preserved semantically; prefixes may be reserialized with equivalent
+bindings. Retained extensions are limited to 1 MiB per GPX object and 32 nested
+elements. Invalid or duplicate recognized Garmin measurements fail parsing with an
+error.
+
+On serialization, typed sensor fields are authoritative: edited values update their
+retained Garmin element, and clearing a typed field removes that recognized element.
+Unknown extension elements remain unchanged. New typed measurements use Garmin
+TrackPointExtension v2 when no compatible Garmin container is retained.
+
 ## Saving limitations
 
-Saving is **not a lossless round trip**: only creator, track names/descriptions,
-segments, coordinates, elevations and timestamps are written. Unsupported metadata,
-waypoints, routes and extensions are not preserved; computed analytics are not
-written. Empty GPX documents, tracks and segments can be serialized, but the existing
-parser drops empty segments/tracks and requires at least one track containing points.
-Writes are **not atomic**: open/write/close errors are reported,
-but a write failure can leave a partial destination file.
+Saving is not a byte-for-byte copy: unsupported metadata, waypoints and routes are
+not preserved; computed analytics are not written. Empty GPX documents, tracks and
+segments can be serialized, but the existing parser drops empty segments/tracks and
+requires at least one track containing points. Writes are **not atomic**:
+open/write/close errors are reported, but a write failure can leave a partial
+destination file.
 
 ## C API ownership and errors
 
@@ -54,7 +77,10 @@ and `gpxSaveFile`.
 Free serialized strings and error strings with `gpxStringFree`; free loaded data
 with `gpxDataFree`. New operations set `outError` to NULL on success, or an allocated
 error on failure when supplied. Serialization returns NULL on failure; saving
-returns false.
+returns false. Sensor accessors return `true` only when the measurement is available
+and valid; they write to caller-provided output parameters and do not transfer
+ownership. Segment handles returned by `gpxTrackGetSegment` remain borrowed from the
+owning data handle.
 
 ### Setting the creator
 

@@ -90,6 +90,13 @@ json serialize(core::GPXData& data)
                     {{"latitude", point.latitude},
                      {"longitude", point.longitude},
                      {"elevationMeters", elevation(point.elevation)},
+                     {"heartRateBpm", point.heartRateBpm
+                                          ? json(static_cast<unsigned int>(*point.heartRateBpm))
+                                          : json(nullptr)},
+                     {"cadenceRpm", point.cadenceRpm
+                                        ? json(static_cast<unsigned int>(*point.cadenceRpm))
+                                        : json(nullptr)},
+                     {"temperatureCelsius", elevation(point.temperatureCelsius)},
                      {"timeUnixMs", time},
                      {"speedMetersPerSecond", elevation(i > 0 ? core::GPXAnalytics::calculateSpeed(
                                                                     segment.points[i - 1], point)

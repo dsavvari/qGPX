@@ -12,7 +12,8 @@ export interface Replay {
   recorded: boolean;
 }
 
-export interface ReplayPosition extends TrackPoint {
+export interface ReplayPosition
+  extends Omit<TrackPoint, "heartRateBpm" | "cadenceRpm" | "temperatureCelsius"> {
   inGap: boolean;
 }
 
@@ -66,7 +67,15 @@ export function replayPosition(replay: Replay, seconds: number): ReplayPosition 
   const current = replay.samples[Math.max(0, low - 1)]!;
   const next = replay.samples[low];
   if (!next || next.segment !== current.segment) {
-    return { ...current.point, speedMetersPerSecond: null, inGap: Boolean(next) };
+    return {
+      latitude: current.point.latitude,
+      longitude: current.point.longitude,
+      distanceMeters: current.point.distanceMeters,
+      elevationMeters: current.point.elevationMeters,
+      timeUnixMs: current.point.timeUnixMs,
+      speedMetersPerSecond: null,
+      inGap: Boolean(next),
+    };
   }
   const fraction = (time - current.seconds) / (next.seconds - current.seconds);
   const interpolate = (a: number, b: number) => a + (b - a) * fraction;

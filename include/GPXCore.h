@@ -31,7 +31,7 @@ extern "C"
     /// Returns NULL on failure; outError receives a caller-owned error (free with gpxStringFree).
     GPXDataHandle gpxParseFile(const char* filePath, char** outError);
 
-    /// Serialize modeled fields as UTF-8 GPX 1.1 (not a lossless copy).
+    /// Serialize modeled fields and retained extensions as UTF-8 GPX 1.1 (not a lossless copy).
     /// Returns a caller-owned string (free with gpxStringFree), or NULL on failure.
     /// outError receives a caller-owned error on failure, or NULL on success.
     char* gpxSerialize(GPXDataHandle handle, char** outError);
@@ -108,6 +108,19 @@ extern "C"
     /// Speed in m/s from the preceding point; -1 for index 0, invalid input,
     /// missing/non-increasing timestamps, or non-finite measurements.
     double gpxSegmentGetPointSpeed(GPXSegmentHandle handle, uint32_t index);
+
+    /// Get a point's Garmin heart rate in bpm. Returns false if unavailable or invalid.
+    /// Writes outBpm only on success; handles are borrowed and outBpm remains caller-owned.
+    bool gpxSegmentGetPointHeartRate(GPXSegmentHandle handle, uint32_t index, uint8_t* outBpm);
+
+    /// Get a point's Garmin cadence in rpm. Returns false if unavailable or invalid.
+    /// Writes outRpm only on success; handles are borrowed and outRpm remains caller-owned.
+    bool gpxSegmentGetPointCadence(GPXSegmentHandle handle, uint32_t index, uint8_t* outRpm);
+
+    /// Get a point's Garmin temperature in degrees Celsius. Returns false if unavailable or
+    /// invalid. Writes outCelsius only on success; handles are borrowed and outCelsius remains
+    /// caller-owned.
+    bool gpxSegmentGetPointTemperature(GPXSegmentHandle handle, uint32_t index, double* outCelsius);
 
     /// Get point coordinates at index
     /// @param outLat Pointer to receive latitude

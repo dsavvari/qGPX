@@ -12,8 +12,8 @@ import { isEmpty } from "ol/extent.js";
 import { Circle, Fill, Stroke, Style } from "ol/style.js";
 import "ol/ol.css";
 import "./style.css";
-import { coverage, elevationRuns, formatDuration } from "./model.ts";
-import type { Analysis, Measurements, Segment } from "./model.ts";
+import { coverage, elevationRuns, formatDuration, sensorRuns } from "./model.ts";
+import type { Analysis, Measurements, Segment, SensorMetric } from "./model.ts";
 import { createReplay, replayPosition } from "./replay.ts";
 
 function element<T extends Element>(id: string, type: new () => T): T {
@@ -31,6 +31,8 @@ const error = element("error", HTMLParagraphElement);
 const description = element("description", HTMLParagraphElement);
 const stats = element("stats", HTMLDListElement);
 const profileNote = element("profile-note", HTMLParagraphElement);
+const sensorProfile = element("sensor-profile", SVGSVGElement);
+const sensorProfileNote = element("sensor-profile-note", HTMLParagraphElement);
 const mapNote = element("map-note", HTMLParagraphElement);
 const fitButton = element("fit", HTMLButtonElement);
 const basemap = element("basemap", HTMLInputElement);
@@ -88,9 +90,17 @@ let lastFrame = 0;
 let playbackRate = Number(replaySpeed.value);
 let profileDistance = 0;
 let profileOffset = 0;
+const profilePlotLeft = 65;
+const profilePlotRight = 875;
+const profilePlotWidth = profilePlotRight - profilePlotLeft;
 const profileCursor = svgElement("line", {
-  x1: "65", x2: "65", y1: "15", y2: "150", class: "replay-cursor",
+  x1: String(profilePlotLeft),
+  x2: String(profilePlotLeft),
+  y1: "15",
+  y2: "150",
+  class: "replay-cursor",
 });
+const sensorProfileCursors: SVGLineElement[] = [];
 replaySource.clear();
 
 function updateReplayControls() {
@@ -120,9 +130,13 @@ function renderReplayPosition() {
   if (follow.checked) map.getView().setCenter(coordinates);
   timeline.value = String(elapsed);
   const distance = position.distanceMeters - profileOffset;
-  const x = 65 + distance / (profileDistance || 1) * 810;
+  const x = profilePlotLeft + distance / (profileDistance || 1) * profilePlotWidth;
   profileCursor.setAttribute("x1", String(x));
   profileCursor.setAttribute("x2", String(x));
+  for (const cursor of sensorProfileCursors) {
+    cursor.setAttribute("x1", String(x));
+    cursor.setAttribute("x2", String(x));
+  }
   const elevation = position.elevationMeters === null ? "elevation unavailable" :
     `${position.elevationMeters.toFixed(0)} m elevation`;
   const speed = position.speedMetersPerSecond === null ? "speed unavailable" :
@@ -205,14 +219,33 @@ function renderProfile(segments: Segment[]) {
   const padding = Math.max((max - min) * 0.1, 1);
   const low = min - padding;
   const high = max + padding;
-  const x = (distance: number) => 65 + (distance / (maxDistance || 1)) * 810;
+  const x = (distance: number) =>
+    profilePlotLeft + (distance / (maxDistance || 1)) * profilePlotWidth;
   const y = (height: number) => 150 - ((height - low) / (high - low)) * 130;
   for (let i = 0; i <= 4; i++) {
     const height = low + ((high - low) * i) / 4;
     profile.append(
-      svgElement("line", { x1: "65", x2: "875", y1: `${y(height)}`, y2: `${y(height)}`, class: "grid" }),
-      svgElement("text", { x: "55", y: `${y(height) + 4}`, "text-anchor": "end" }, height.toFixed(0)),
-      svgElement("text", { x: `${65 + i * 202.5}`, y: "178", "text-anchor": "middle" }, ((maxDistance * i) / 4000).toFixed(2)),
+      svgElement("line", {
+        x1: String(profilePlotLeft),
+        x2: String(profilePlotRight),
+        y1: `${y(height)}`,
+        y2: `${y(height)}`,
+        class: "grid",
+      }),
+      svgElement(
+        "text",
+        { x: String(profilePlotLeft - 10), y: `${y(height) + 4}`, "text-anchor": "end" },
+        height.toFixed(0),
+      ),
+      svgElement(
+        "text",
+        {
+          x: `${profilePlotLeft + (profilePlotWidth * i) / 4}`,
+          y: "178",
+          "text-anchor": "middle",
+        },
+        ((maxDistance * i) / 4000).toFixed(2),
+      ),
     );
   }
   for (const run of runs) {
@@ -228,6 +261,155 @@ function renderProfile(segments: Segment[]) {
   }
   profileNote.textContent = "Gaps are preserved between segments and where elevation is missing.";
   profile.append(profileCursor);
+}
+
+function renderSensorProfile(segments: Segment[]) {
+  const metrics: {
+    field: SensorMetric;
+    label: string;
+    unit: string;
+    color: string;
+  }[] = [
+    { field: "heartRateBpm", label: "Heart rate", unit: "bpm", color: "heart-rate" },
+    { field: "cadenceRpm", label: "Cadence", unit: "rpm", color: "cadence" },
+    { field: "temperatureCelsius", label: "Temperature", unit: "C", color: "temperature" },
+  ];
+  sensorProfile.replaceChildren();
+  sensorProfileCursors.length = 0;
+  const x = (distance: number) =>
+    profilePlotLeft + (distance / (profileDistance || 1)) * profilePlotWidth;
+  let totalSamples = 0;
+
+  metrics.forEach((metric, index) => {
+    const runs = sensorRuns(segments, metric.field);
+    const points = runs.flat();
+    totalSamples += points.length;
+    const rowTop = 12 + index * 112;
+    const plotTop = rowTop + 24;
+    const plotBottom = rowTop + 86;
+    sensorProfile.append(
+      svgElement(
+        "text",
+        { x: String(profilePlotLeft), y: `${rowTop + 14}`, class: "sensor-label" },
+        `${metric.label} (${metric.unit})`,
+      ),
+      svgElement(
+        "text",
+        {
+          x: String(profilePlotRight),
+          y: `${rowTop + 14}`,
+          "text-anchor": "end",
+          class: "sensor-count",
+        },
+        `${points.length.toLocaleString()} samples`,
+      ),
+    );
+    if (!points.length) {
+      sensorProfile.append(
+        svgElement(
+          "text",
+          { x: String(profilePlotLeft), y: `${plotTop + 34}`, class: "sensor-empty" },
+          "No data in this selection.",
+        ),
+      );
+      return;
+    }
+
+    let min = Infinity;
+    let max = -Infinity;
+    for (const point of points) {
+      min = Math.min(min, point.value);
+      max = Math.max(max, point.value);
+    }
+    const padding = Math.max((max - min) * 0.1, metric.field === "temperatureCelsius" ? 0.5 : 1);
+    const low = min - padding;
+    const high = max + padding;
+    const y = (value: number) => plotBottom - ((value - low) / (high - low)) * (plotBottom - plotTop);
+    for (let tick = 0; tick <= 2; tick++) {
+      const value = low + ((high - low) * tick) / 2;
+      const tickY = y(value);
+      sensorProfile.append(
+        svgElement(
+          "line",
+          {
+            x1: String(profilePlotLeft),
+            x2: String(profilePlotRight),
+            y1: `${tickY}`,
+            y2: `${tickY}`,
+            class: "sensor-grid",
+          },
+        ),
+        svgElement(
+          "text",
+          {
+            x: String(profilePlotLeft - 8),
+            y: `${tickY + 4}`,
+            "text-anchor": "end",
+            class: "sensor-tick",
+          },
+          metric.field === "temperatureCelsius" ? value.toFixed(1) : value.toFixed(0),
+        ),
+      );
+    }
+    for (const run of runs) {
+      sensorProfile.append(
+        svgElement(
+          "polyline",
+          {
+            points: run.map((point) => `${x(point.distance)},${y(point.value)}`).join(" "),
+            class: `sensor-line sensor-${metric.color}`,
+          },
+        ),
+      );
+      if (run.length === 1 && run[0]) {
+        sensorProfile.append(
+          svgElement("circle", {
+            cx: `${x(run[0].distance)}`,
+            cy: `${y(run[0].value)}`,
+            r: "3",
+            class: `sensor-point sensor-${metric.color}`,
+          }),
+        );
+      }
+    }
+    const cursor = svgElement("line", {
+      x1: String(profilePlotLeft),
+      x2: String(profilePlotLeft),
+      y1: String(plotTop),
+      y2: String(plotBottom),
+      class: "sensor-replay-cursor",
+    });
+    sensorProfileCursors.push(cursor);
+    sensorProfile.append(cursor);
+  });
+
+  const ticks = Array.from({ length: 5 }, (_, index) => index / 4);
+  const bottomY = 12 + (metrics.length - 1) * 112 + 86;
+  for (const tick of ticks) {
+    const tickX = profilePlotLeft + tick * profilePlotWidth;
+    sensorProfile.append(
+      svgElement(
+        "text",
+        { x: `${tickX}`, y: `${bottomY + 18}`, "text-anchor": "middle", class: "sensor-tick" },
+        ((profileDistance * tick) / 1000).toFixed(2),
+      ),
+    );
+  }
+  sensorProfile.append(
+    svgElement(
+      "text",
+      {
+        x: String(profilePlotLeft + profilePlotWidth / 2),
+        y: `${bottomY + 36}`,
+        "text-anchor": "middle",
+        class: "sensor-axis-label",
+      },
+      "Distance (km)",
+    ),
+  );
+  sensorProfileNote.textContent = totalSamples
+    ? "Sensor scales are independent. Gaps are preserved for missing values and between segments."
+    : "No supported Garmin sensor values in this selection. Other imported GPX extensions remain available on export.";
 }
 
 function renderStats(measurements: Measurements, segments: Segment[]) {
@@ -261,7 +443,10 @@ function renderStats(measurements: Measurements, segments: Segment[]) {
 function renderSelection() {
   const track = analysis?.tracks[Number(trackSelect.value)];
   if (!track) return;
-  const selected = segmentSelect.value === "all" ? null : track.segments[Number(segmentSelect.value)];
+  const selectedSegmentIndex =
+    segmentSelect.value === "all" ? null : Number(segmentSelect.value);
+  const selected =
+    selectedSegmentIndex === null ? null : track.segments[selectedSegmentIndex];
   const segments = selected ? [selected] : track.segments;
   source.clear();
   const features: Feature<LineString | Point>[] = [];
@@ -280,6 +465,7 @@ function renderSelection() {
   document.querySelector(".measurement-note")?.remove();
   renderStats(selected ?? track, segments);
   renderProfile(segments);
+  renderSensorProfile(segments);
   mapNote.textContent = "Geometry from the C++ parser. Segment breaks are not connected. Polar latitudes are clipped to the basemap's Mercator limits.";
   fitTrack();
   resetReplay(segments);

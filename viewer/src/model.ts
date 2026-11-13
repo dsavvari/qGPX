@@ -2,6 +2,9 @@ export interface TrackPoint {
   latitude: number;
   longitude: number;
   elevationMeters: number | null;
+  heartRateBpm: number | null;
+  cadenceRpm: number | null;
+  temperatureCelsius: number | null;
   timeUnixMs: number | null;
   distanceMeters: number;
   speedMetersPerSecond: number | null;
@@ -35,6 +38,13 @@ export interface Analysis {
 export interface ProfilePoint {
   distance: number;
   elevation: number;
+}
+
+export type SensorMetric = "heartRateBpm" | "cadenceRpm" | "temperatureCelsius";
+
+export interface SensorProfilePoint {
+  distance: number;
+  value: number;
 }
 
 export function elevationRuns(segments: Segment[]): ProfilePoint[][] {
@@ -74,6 +84,25 @@ export function coverage(segments: Segment[]) {
     }
   }
   return { points, elevations, timestamps, elevationPairs };
+}
+
+export function sensorRuns(segments: Segment[], metric: SensorMetric): SensorProfilePoint[][] {
+  const runs: SensorProfilePoint[][] = [];
+  const offset = segments[0]?.points[0]?.distanceMeters ?? 0;
+  for (const segment of segments) {
+    let run: SensorProfilePoint[] = [];
+    for (const point of segment.points) {
+      const value = point[metric];
+      if (value === null) {
+        if (run.length) runs.push(run);
+        run = [];
+      } else {
+        run.push({ distance: point.distanceMeters - offset, value });
+      }
+    }
+    if (run.length) runs.push(run);
+  }
+  return runs;
 }
 
 export function formatDuration(seconds: number | null): string {
