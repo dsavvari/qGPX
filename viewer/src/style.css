@@ -51,7 +51,8 @@ a { color: #087f8c; }
 #map-note, #profile-note { margin: 10px 20px; font-size: 11px; color: #526e7c; }
 #profile { display: block; width: 100%; min-height: 130px; max-height: 240px; padding: 6px 10px; }
 #profile text { font-size: 11px; fill: #526e7c; }
-#sensor-profile { display: block; width: 100%; min-height: 240px; max-height: 360px; padding: 6px 10px; }
+/* Keep the viewBox's maximum x-scale equal to #profile after vertical padding. */
+#sensor-profile { display: block; width: 100%; min-height: 240px; max-height: 480px; padding: 6px 10px; }
 #sensor-profile text { font-size: 11px; fill: #526e7c; }
 #sensor-profile .sensor-label { font-weight: 650; fill: #172f42; }
 #sensor-profile .sensor-count, #sensor-profile .sensor-empty { fill: #526e7c; }
