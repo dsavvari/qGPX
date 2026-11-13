@@ -76,6 +76,27 @@ struct TrackPoint
     }
 };
 
+/// Movement statistics and coverage for a segment or track
+struct MovementStatistics
+{
+    double movingDuration = 0.0;      // Seconds of actual movement (speed >= threshold)
+    double stoppedDuration = 0.0;     // Seconds stopped (speed < threshold)
+    double elapsedDuration = 0.0;     // Total elapsed time from first to last valid timestamp
+    double movingDistance = 0.0;      // Distance traveled during moving periods (meters)
+    double stoppedDistance = 0.0;     // Distance during stopped periods (meters)
+    double movingAverageSpeed = 0.0;  // Moving distance / moving duration (m/s)
+    double elapsedAverageSpeed = 0.0; // Total distance / elapsed duration (m/s)
+
+    uint32_t validIntervals = 0;   // Number of valid adjacent-point intervals analyzed
+    uint32_t invalidIntervals = 0; // Number of intervals with missing/invalid data
+    uint32_t gapIntervals = 0;     // Number of intervals exceeding the gap threshold
+
+    bool isAvailable() const
+    {
+        return validIntervals > 0;
+    }
+};
+
 /// Represents a segment within a track (continuous line between points)
 struct TrackSegment
 {
@@ -86,6 +107,7 @@ struct TrackSegment
     std::optional<double> totalDistance; // Meters
     std::optional<double> elevationGain; // Meters
     std::optional<double> elevationLoss; // Meters
+    std::optional<MovementStatistics> movementStats;
 
     bool isEmpty() const
     {
@@ -110,6 +132,7 @@ struct Track
     std::optional<double> elevationGain; // Meters
     std::optional<double> elevationLoss; // Meters
     std::optional<std::chrono::seconds> duration;
+    std::optional<MovementStatistics> movementStats;
 
     bool isEmpty() const
     {

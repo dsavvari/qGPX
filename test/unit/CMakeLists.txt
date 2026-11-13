@@ -6,6 +6,7 @@ add_executable(unit_tests
     TestGPXModels.cpp
     TestGPXSpeed.cpp
     TestGPXWriter.cpp
+    TestMovementAnalytics.cpp
 )
 
 # Link against Google Test and our library
