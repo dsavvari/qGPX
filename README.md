@@ -6,6 +6,16 @@ It also derives adjacent-point and maximum speed from coordinates and timestamps
 
 ![qGPX Track lab showing a GPX track on a map, track statistics, and an elevation profile](docs/images/track-lab.png)
 
+## Supported functionality
+
+qGPX provides C++ and C APIs for reading, analyzing, and writing GPX track data.
+Its core features are:
+
+- Parse GPX XML strings and local files into tracks, segments, and points with timestamps and sensor data ([parser API](include/GPXParser.hpp)).
+- Calculate track distance, elevation gain and loss, duration, and adjacent-point or maximum speed ([analytics API](include/GPXAnalytics.hpp)).
+- Serialize and save GPX 1.1 data, including supported Garmin measurements and retained extension elements ([writer API](include/GPXWriter.hpp)).
+- Access and analyze track data, parse and save files, and serialize GPX from C ([C API](include/GPXCore.h)).
+
 ## Dependencies
 
 - CMake 3.20 or newer
