@@ -8,7 +8,7 @@ It also derives adjacent-point and maximum speed from coordinates and timestamps
 
 ## Supported functionality
 
-qGPX provides C++ and C APIs for reading, analyzing, and writing GPX track data.
+qGPX provides C++ and C APIs for reading, analysing, and writing GPX track data.
 Its core features are:
 
 - Parse GPX XML strings and local files into tracks, segments, and points with timestamps and sensor data ([parser API](include/GPXParser.hpp)).
