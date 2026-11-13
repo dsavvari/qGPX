@@ -120,9 +120,9 @@ requires `clang-format` to be installed.
 
 ## Optional browser viewer
 
-The [local development viewer](viewer/README.md) provides GPX upload, track and
-segment selection, a map, statistics, an elevation profile, and 2D replay with
-optional camera follow. It uses the C++
+The [local development viewer](viewer/README.md) provides GPX upload, Garmin sensor
+data inspection, track and segment selection, a map, statistics, an elevation
+profile, and 2D replay with optional camera follow. It uses the C++
 library through a loopback-only HTTP adapter; the library itself remains
 frontend-independent.
 

@@ -20,12 +20,18 @@
         <p id="status" role="status">No file loaded.</p>
         <p id="error" role="alert" hidden></p>
         <button id="download" disabled aria-describedby="download-note">Download GPX</button>
-        <p id="download-note">Exports all loaded tracks as GPX 1.1. Unsupported metadata and extensions are not preserved.</p>
+        <p id="download-note">Exports all loaded tracks as GPX 1.1. Garmin sensor values and retained GPX extensions are preserved.</p>
         <section class="controls">
           <label for="track">Track</label><select id="track" disabled><option>No tracks</option></select>
           <label for="segment">Segment</label><select id="segment" disabled><option>All segments</option></select>
           <p id="description"></p>
           <dl id="stats"></dl>
+        </section>
+        <section class="garmin-panel" aria-labelledby="garmin-heading">
+          <h2 id="garmin-heading">Garmin sensor data</h2>
+          <p id="garmin-note" aria-live="polite">Load a GPX file to inspect supported Garmin sensor samples.</p>
+          <ol id="garmin-rows" class="sensor-samples" aria-label="Garmin sensor samples" hidden></ol>
+          <button id="garmin-more" type="button" hidden>Show more samples</button>
         </section>
         <footer>
           <label><input id="basemap" type="checkbox" /> OpenStreetMap basemap</label>

@@ -1,10 +1,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { coverage, elevationRuns, formatDuration } from "../src/model.ts";
-import type { Segment, TrackPoint } from "../src/model.ts";
+import { coverage, elevationRuns, formatDuration, garminSamples } from "../src/model.ts";
+import type { Segment, Track, TrackPoint } from "../src/model.ts";
 
 function point(distance: number, elevation: number | null): TrackPoint {
-  return { latitude: 0, longitude: 0, distanceMeters: distance, elevationMeters: elevation, timeUnixMs: null, speedMetersPerSecond: null };
+  return {
+    latitude: 0,
+    longitude: 0,
+    distanceMeters: distance,
+    elevationMeters: elevation,
+    heartRateBpm: null,
+    cadenceRpm: null,
+    temperatureCelsius: null,
+    timeUnixMs: null,
+    speedMetersPerSecond: null,
+  };
 }
 
 function segment(points: TrackPoint[]): Segment {
@@ -43,4 +53,44 @@ test("duration keeps missing, zero, and negative measurements distinct", () => {
   assert.equal(formatDuration(0), "0h 0m 0s");
   assert.equal(formatDuration(3661), "1h 1m 1s");
   assert.equal(formatDuration(-60), "-0h 1m 0s");
+});
+
+test("Garmin samples retain point locations and include zero cadence", () => {
+  const first = point(0, null);
+  first.heartRateBpm = 120;
+  const second = point(45, null);
+  second.cadenceRpm = 0;
+  second.temperatureCelsius = -2.5;
+  const third = point(80, null);
+  const track: Track = {
+    name: "",
+    description: "",
+    pointCount: 3,
+    distanceMeters: 80,
+    elevationGainMeters: 0,
+    elevationLossMeters: 0,
+    durationSeconds: null,
+    maxSpeedMetersPerSecond: null,
+    segments: [segment([first, third]), segment([second])],
+  };
+
+  assert.deepEqual(garminSamples(track, null), [
+    {
+      segmentNumber: 1,
+      pointNumber: 1,
+      distanceMeters: 0,
+      heartRateBpm: 120,
+      cadenceRpm: null,
+      temperatureCelsius: null,
+    },
+    {
+      segmentNumber: 2,
+      pointNumber: 1,
+      distanceMeters: 45,
+      heartRateBpm: null,
+      cadenceRpm: 0,
+      temperatureCelsius: -2.5,
+    },
+  ]);
+  assert.deepEqual(garminSamples(track, 1), [garminSamples(track, null)[1]]);
 });

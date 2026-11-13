@@ -2,6 +2,9 @@ export interface TrackPoint {
   latitude: number;
   longitude: number;
   elevationMeters: number | null;
+  heartRateBpm: number | null;
+  cadenceRpm: number | null;
+  temperatureCelsius: number | null;
   timeUnixMs: number | null;
   distanceMeters: number;
   speedMetersPerSecond: number | null;
@@ -24,6 +27,15 @@ export interface Track extends Measurements {
   description: string;
   pointCount: number;
   segments: Segment[];
+}
+
+export interface GarminSample {
+  segmentNumber: number;
+  pointNumber: number;
+  distanceMeters: number;
+  heartRateBpm: number | null;
+  cadenceRpm: number | null;
+  temperatureCelsius: number | null;
 }
 
 export interface Analysis {
@@ -74,6 +86,26 @@ export function coverage(segments: Segment[]) {
     }
   }
   return { points, elevations, timestamps, elevationPairs };
+}
+
+export function garminSamples(track: Track, selectedSegmentIndex: number | null): GarminSample[] {
+  const samples: GarminSample[] = [];
+  track.segments.forEach((segment, segmentIndex) => {
+    if (selectedSegmentIndex !== null && segmentIndex !== selectedSegmentIndex) return;
+    segment.points.forEach((point, pointIndex) => {
+      if (point.heartRateBpm === null && point.cadenceRpm === null &&
+          point.temperatureCelsius === null) return;
+      samples.push({
+        segmentNumber: segmentIndex + 1,
+        pointNumber: pointIndex + 1,
+        distanceMeters: point.distanceMeters,
+        heartRateBpm: point.heartRateBpm,
+        cadenceRpm: point.cadenceRpm,
+        temperatureCelsius: point.temperatureCelsius,
+      });
+    });
+  });
+  return samples;
 }
 
 export function formatDuration(seconds: number | null): string {

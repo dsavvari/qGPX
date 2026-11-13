@@ -73,6 +73,9 @@ TEST_F(ViewerTest, AnalysesTracksWithoutConnectingSegments)
     EXPECT_EQ(first["latitude"], 38);
     EXPECT_EQ(first["longitude"], 23);
     EXPECT_EQ(first["elevationMeters"], 100);
+    EXPECT_TRUE(first["heartRateBpm"].is_null());
+    EXPECT_TRUE(first["cadenceRpm"].is_null());
+    EXPECT_TRUE(first["temperatureCelsius"].is_null());
     EXPECT_TRUE(first["speedMetersPerSecond"].is_null());
     EXPECT_EQ(first["timeUnixMs"], 1772528400000LL);
     EXPECT_EQ(track["segments"][0]["durationSeconds"], 60);
@@ -144,6 +147,39 @@ TEST_F(ViewerTest, ExportsAllTracksWithViewerCreatorAndGpxContentType)
     EXPECT_FALSE(track.segments[1].points.front().elevation);
     EXPECT_FALSE(track.segments[1].points.front().time);
     EXPECT_FALSE(track.totalDistance);
+}
+
+TEST_F(ViewerTest, AnalysesAndExportsGarminSensorExtensions)
+{
+    const std::string xml =
+        R"(<gpx xmlns:t="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:v="urn:viewer"><trk><trkseg><trkpt lat="45" lon="6"><extensions><t:TrackPointExtension><t:hr>120</t:hr><t:cad>0</t:cad><t:atemp>-2.5</t:atemp></t:TrackPointExtension><v:opaque v:flag="keep">unknown</v:opaque></extensions></trkpt></trkseg></trk></gpx>)";
+    auto analysis = client->Post("/api/analyse", xml, "application/gpx+xml");
+    ASSERT_TRUE(analysis);
+    ASSERT_EQ(analysis->status, 200);
+    const auto body = nlohmann::json::parse(analysis->body);
+    const auto& point = body["tracks"][0]["segments"][0]["points"][0];
+    EXPECT_EQ(point["heartRateBpm"], 120);
+    EXPECT_EQ(point["cadenceRpm"], 0);
+    EXPECT_EQ(point["temperatureCelsius"], -2.5);
+
+    auto exported = client->Post("/api/export", xml, "application/gpx+xml");
+    ASSERT_TRUE(exported);
+    ASSERT_EQ(exported->status, 200);
+    const auto restored = qGpx::core::GPXParser{}.parse(exported->body);
+    ASSERT_TRUE(restored.success) << restored.errorMessage;
+    const auto& restoredPoint = restored.value->tracks[0].segments[0].points[0];
+    ASSERT_TRUE(restoredPoint.heartRateBpm);
+    EXPECT_EQ(*restoredPoint.heartRateBpm, 120);
+    ASSERT_TRUE(restoredPoint.cadenceRpm);
+    EXPECT_EQ(*restoredPoint.cadenceRpm, 0);
+    ASSERT_TRUE(restoredPoint.temperatureCelsius);
+    EXPECT_DOUBLE_EQ(*restoredPoint.temperatureCelsius, -2.5);
+    ASSERT_EQ(restoredPoint.extensions.size(), 2u);
+    EXPECT_EQ(restoredPoint.extensions[1].namespaceUri, "urn:viewer");
+    ASSERT_EQ(restoredPoint.extensions[1].attributes.size(), 1u);
+    EXPECT_EQ(restoredPoint.extensions[1].attributes[0].value, "keep");
+    ASSERT_EQ(restoredPoint.extensions[1].children.size(), 1u);
+    EXPECT_EQ(restoredPoint.extensions[1].children[0].text, "unknown");
 }
 
 TEST_F(ViewerTest, ReportsExportValidationFailure)

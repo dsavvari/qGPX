@@ -4,7 +4,17 @@ import { createReplay, replayPosition } from "../src/replay.ts";
 import type { Segment, TrackPoint } from "../src/model.ts";
 
 function point(distance: number, time: number | null, longitude = 0, elevation: number | null = 0): TrackPoint {
-  return { latitude: 0, longitude, distanceMeters: distance, timeUnixMs: time, elevationMeters: elevation, speedMetersPerSecond: null };
+  return {
+    latitude: 0,
+    longitude,
+    distanceMeters: distance,
+    timeUnixMs: time,
+    elevationMeters: elevation,
+    heartRateBpm: null,
+    cadenceRpm: null,
+    temperatureCelsius: null,
+    speedMetersPerSecond: null,
+  };
 }
 
 function segment(...points: TrackPoint[]): Segment {
