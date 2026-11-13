@@ -30,6 +30,7 @@ namespace
 
 constexpr char NamespaceSeparator = '\x1f';
 constexpr const char* GPXNamespace = "http://www.topografix.com/GPX/1/1";
+constexpr const char* GPXNamespaceV1_0 = "http://www.topografix.com/GPX/1/0";
 constexpr const char* GarminTrackPointExtensionV1 =
     "http://www.garmin.com/xmlschemas/TrackPointExtension/v1";
 constexpr const char* GarminTrackPointExtensionV2 =
@@ -109,7 +110,7 @@ struct ParserState
     std::string characterData;
     std::string errorMessage;
     std::string gpxNamespaceUri;
-    std::map<std::string, std::string> namespaceBindings;
+    std::map<std::string, std::string> namespaceBindings{{"", ""}};
     std::vector<std::vector<PreviousNamespaceBinding>> namespaceScopeStack;
     std::vector<NamespaceBinding> pendingNamespaceDeclarations;
     std::vector<NamespaceBinding> namespaceDeclarationsForCurrentElement;
@@ -527,7 +528,9 @@ static void XMLCALL startElementHandler(void* userData, const char* rawName, con
             return;
         }
     }
-    if (name.localName == "gpx" && (name.namespaceUri.empty() || name.namespaceUri == GPXNamespace))
+    if (name.localName == "gpx" &&
+        (name.namespaceUri.empty() || name.namespaceUri == GPXNamespace ||
+         name.namespaceUri == GPXNamespaceV1_0))
     {
         if (parent != ParserState::Element::None)
         {

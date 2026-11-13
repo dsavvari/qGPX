@@ -538,6 +538,18 @@ TEST(GPXParser, MatchesGarminMeasurementsByNamespaceUriNotPrefixOrLocalNameAlone
     EXPECT_FALSE(wrongGpxNamespace.success);
 }
 
+TEST(GPXParser, AcceptsGpxVersion10Namespace)
+{
+    const auto result = GPXParser{}.parse(
+        R"(<g:gpx xmlns:g="http://www.topografix.com/GPX/1/0"><g:trk><g:name>legacy</g:name><g:trkseg><g:trkpt lat="45" lon="6"/></g:trkseg></g:trk></g:gpx>)");
+
+    ASSERT_TRUE(result.success) << result.errorMessage;
+    ASSERT_EQ(result.value->tracks.size(), 1u);
+    EXPECT_EQ(result.value->tracks[0].name, "legacy");
+    ASSERT_EQ(result.value->tracks[0].segments.size(), 1u);
+    ASSERT_EQ(result.value->tracks[0].segments[0].points.size(), 1u);
+}
+
 TEST(GPXParser, RejectsInvalidAndDuplicateGarminMeasurements)
 {
     GPXParser parser;

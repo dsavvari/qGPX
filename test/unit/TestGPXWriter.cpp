@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <iomanip>
@@ -124,6 +125,31 @@ TEST(GPXWriter, PreservesExtensionsAtEveryScopeAndSynchronizesGarminEdits)
     EXPECT_EQ(opaque.children[2].children[0].text, "after");
     EXPECT_NE(xml.value->find("v:Power"), std::string::npos);
     EXPECT_NE(xml.value->find("xmlns:v=\"urn:vendor:test\""), std::string::npos);
+}
+
+TEST(GPXWriter, PreservesEmptyDefaultNamespaceForExtensionQNameValues)
+{
+    const auto source =
+        R"(<g:gpx xmlns:g="http://www.topografix.com/GPX/1/1" xmlns:v="urn:vendor:test" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><g:trk><g:trkseg><g:trkpt lat="45" lon="6"><g:extensions><v:x xsi:type="Local"/></g:extensions></g:trkpt></g:trkseg></g:trk></g:gpx>)";
+    const auto parsed = GPXParser{}.parse(source);
+    ASSERT_TRUE(parsed.success) << parsed.errorMessage;
+
+    const auto xml = GPXWriter{}.serialize(*parsed.value);
+    ASSERT_TRUE(xml.success) << xml.errorMessage;
+    const auto extensionStart = xml.value->find("<v:x");
+    ASSERT_NE(extensionStart, std::string::npos);
+    EXPECT_NE(xml.value->find("xmlns=\"\"", extensionStart), std::string::npos);
+
+    const auto restored = GPXParser{}.parse(*xml.value);
+    ASSERT_TRUE(restored.success) << restored.errorMessage;
+    const auto& extension = restored.value->tracks[0].segments[0].points[0].extensions[0];
+    ASSERT_EQ(extension.attributes.size(), 1u);
+    EXPECT_EQ(extension.attributes[0].value, "Local");
+    const auto defaultBinding =
+        std::find_if(extension.inScopeNamespaces.begin(), extension.inScopeNamespaces.end(),
+                     [](const NamespaceBinding& binding) { return binding.prefix.empty(); });
+    ASSERT_NE(defaultBinding, extension.inScopeNamespaces.end());
+    EXPECT_TRUE(defaultBinding->namespaceUri.empty());
 }
 
 TEST(GPXWriter, ExportsShortestRoundTripDecimals)
