@@ -18,6 +18,29 @@ extern "C"
     typedef void* GPXSegmentHandle;
 
     // ============================================================================
+    // MARK: - Movement Statistics Structure
+    // ============================================================================
+
+    /// Movement statistics result from analysis
+    typedef struct
+    {
+        /// True if statistics are available (at least one valid interval)
+        bool isAvailable;
+
+        double movingDuration;      // Seconds of actual movement (speed >= threshold)
+        double stoppedDuration;     // Seconds stopped (speed < threshold)
+        double elapsedDuration;     // Total elapsed time from first to last valid timestamp
+        double movingDistance;      // Distance traveled during moving periods (meters)
+        double stoppedDistance;     // Distance during stopped periods (meters)
+        double movingAverageSpeed;  // Moving distance / moving duration (m/s), or 0 if no movement
+        double elapsedAverageSpeed; // Total distance / elapsed duration (m/s)
+
+        uint32_t validIntervals;   // Number of valid adjacent-point intervals analyzed
+        uint32_t invalidIntervals; // Number of intervals with missing/invalid data
+        uint32_t gapIntervals;     // Number of intervals exceeding the gap threshold
+    } GPXMovementStatistics;
+
+    // ============================================================================
     // MARK: - Parser Functions
     // ============================================================================
 
@@ -97,6 +120,10 @@ extern "C"
     /// Calculate maximum adjacent-point speed in m/s, or -1 if unavailable/invalid handle.
     double gpxTrackGetMaxSpeed(GPXTrackHandle handle);
 
+    /// Get track's movement statistics. Returns false if not available/unavailable.
+    /// Writes outStats only on success; outStats remains caller-owned.
+    bool gpxTrackGetMovementStats(GPXTrackHandle handle, GPXMovementStatistics* outStats);
+
     // ---- Segment functions ----
 
     /// Get number of points in segment
@@ -104,6 +131,10 @@ extern "C"
 
     /// Calculate maximum adjacent-point speed in m/s, or -1 if unavailable/invalid handle.
     double gpxSegmentGetMaxSpeed(GPXSegmentHandle handle);
+
+    /// Get segment's movement statistics. Returns false if not available/unavailable.
+    /// Writes outStats only on success; outStats remains caller-owned.
+    bool gpxSegmentGetMovementStats(GPXSegmentHandle handle, GPXMovementStatistics* outStats);
 
     /// Speed in m/s from the preceding point; -1 for index 0, invalid input,
     /// missing/non-increasing timestamps, or non-finite measurements.

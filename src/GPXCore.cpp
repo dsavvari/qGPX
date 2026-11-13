@@ -346,3 +346,51 @@ double gpxCalculateDistance(double lat1, double lon1, double lat2, double lon2)
     TrackPoint p2(lat2, lon2);
     return GPXAnalytics::calculateDistance(p1, p2);
 }
+
+bool gpxTrackGetMovementStats(GPXTrackHandle handle, GPXMovementStatistics* outStats)
+{
+    if (!handle || !outStats)
+        return false;
+
+    auto* track = reinterpret_cast<Track*>(handle);
+    if (!track->movementStats)
+        return false;
+
+    const auto& stats = *track->movementStats;
+    outStats->isAvailable = stats.isAvailable();
+    outStats->movingDuration = stats.movingDuration;
+    outStats->stoppedDuration = stats.stoppedDuration;
+    outStats->elapsedDuration = stats.elapsedDuration;
+    outStats->movingDistance = stats.movingDistance;
+    outStats->stoppedDistance = stats.stoppedDistance;
+    outStats->movingAverageSpeed = stats.movingAverageSpeed;
+    outStats->elapsedAverageSpeed = stats.elapsedAverageSpeed;
+    outStats->validIntervals = stats.validIntervals;
+    outStats->invalidIntervals = stats.invalidIntervals;
+    outStats->gapIntervals = stats.gapIntervals;
+    return true;
+}
+
+bool gpxSegmentGetMovementStats(GPXSegmentHandle handle, GPXMovementStatistics* outStats)
+{
+    if (!handle || !outStats)
+        return false;
+
+    auto* segment = reinterpret_cast<TrackSegment*>(handle);
+    if (!segment->movementStats)
+        return false;
+
+    const auto& stats = *segment->movementStats;
+    outStats->isAvailable = stats.isAvailable();
+    outStats->movingDuration = stats.movingDuration;
+    outStats->stoppedDuration = stats.stoppedDuration;
+    outStats->elapsedDuration = stats.elapsedDuration;
+    outStats->movingDistance = stats.movingDistance;
+    outStats->stoppedDistance = stats.stoppedDistance;
+    outStats->movingAverageSpeed = stats.movingAverageSpeed;
+    outStats->elapsedAverageSpeed = stats.elapsedAverageSpeed;
+    outStats->validIntervals = stats.validIntervals;
+    outStats->invalidIntervals = stats.invalidIntervals;
+    outStats->gapIntervals = stats.gapIntervals;
+    return true;
+}
