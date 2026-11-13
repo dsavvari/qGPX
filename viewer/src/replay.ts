@@ -37,11 +37,15 @@ export function createReplay(segments: Segment[]): Replay {
     if (recorded && sample.point.timeUnixMs !== null && firstTime != null) {
       seconds = (sample.point.timeUnixMs - firstTime) / 1000;
     } else if (segment && segment.durationSeconds !== null && segment.durationSeconds !== undefined) {
-      // Use the C++ calculated duration for this segment, distributed by point index
+      // Use the C++ calculated moving duration if available, otherwise use elapsed duration
+      const durationToUse = segment.movingDurationSeconds !== null && segment.movingDurationSeconds !== undefined
+        ? segment.movingDurationSeconds
+        : segment.durationSeconds;
+      // Distribute the duration by point index within the segment
       const segmentPoints = segment.points;
       const pointIndex = segmentPoints.indexOf(sample.point);
       if (pointIndex >= 0 && segmentPoints.length > 1) {
-        seconds = (pointIndex / (segmentPoints.length - 1)) * segment.durationSeconds;
+        seconds = (pointIndex / (segmentPoints.length - 1)) * durationToUse;
       } else if (pointIndex === 0) {
         seconds = 0;
       }

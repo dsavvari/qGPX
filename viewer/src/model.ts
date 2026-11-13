@@ -16,6 +16,8 @@ export interface Measurements {
   elevationGainMeters: number | null;
   elevationLossMeters: number | null;
   durationSeconds: number | null;
+  movingDurationSeconds: number | null;
+  stoppedDurationSeconds: number | null;
 }
 
 export interface Segment extends Measurements {

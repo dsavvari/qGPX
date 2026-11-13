@@ -213,7 +213,123 @@ std::optional<std::chrono::seconds> GPXAnalytics::calculateDuration(const Track&
     return duration;
 }
 
-void GPXAnalytics::analyseTrack(Track& track)
+std::optional<MovementStatistics>
+GPXAnalytics::calculateMovementStats(const TrackSegment& segment, const MovementOptions& options)
+{
+    MovementStatistics stats;
+
+    for (size_t i = 1; i < segment.points.size(); ++i)
+    {
+        const auto& p1 = segment.points[i - 1];
+        const auto& p2 = segment.points[i];
+
+        // Check for valid timestamps
+        if (!p1.time || !p2.time || *p2.time <= *p1.time)
+        {
+            stats.invalidIntervals++;
+            continue;
+        }
+
+        const double seconds = std::chrono::duration<double>(*p2.time - *p1.time).count();
+        const double distance = calculateDistance(p1, p2);
+        const double speed = distance / seconds;
+
+        // Check for finite speed values
+        if (!std::isfinite(speed))
+        {
+            stats.invalidIntervals++;
+            continue;
+        }
+
+        // Check for gaps exceeding maxGapSpeedMps threshold
+        if (speed > options.maxGapSpeedMps)
+        {
+            stats.gapIntervals++;
+            stats.invalidIntervals++;
+            continue;
+        }
+
+        stats.validIntervals++;
+        stats.elapsedDuration += seconds;
+
+        if (speed >= options.speedThresholdMps)
+        {
+            stats.movingDuration += seconds;
+            stats.movingDistance += distance;
+        }
+        else
+        {
+            stats.stoppedDuration += seconds;
+            stats.stoppedDistance += distance;
+        }
+    }
+
+    if (stats.validIntervals == 0)
+    {
+        return std::nullopt;
+    }
+
+    // Calculate average speeds
+    if (stats.movingDuration > 0.0)
+    {
+        stats.movingAverageSpeed = stats.movingDistance / stats.movingDuration;
+    }
+    if (stats.elapsedDuration > 0.0)
+    {
+        stats.elapsedAverageSpeed =
+            (stats.movingDistance + stats.stoppedDistance) / stats.elapsedDuration;
+    }
+
+    return stats;
+}
+
+std::optional<MovementStatistics>
+GPXAnalytics::calculateMovementStats(const Track& track, const MovementOptions& options)
+{
+    MovementStatistics aggregated;
+    bool hasValidStats = false;
+
+    for (const auto& segment : track.segments)
+    {
+        const auto stats = calculateMovementStats(segment, options);
+        if (stats)
+        {
+            hasValidStats = true;
+            aggregated.movingDuration += stats->movingDuration;
+            aggregated.stoppedDuration += stats->stoppedDuration;
+            aggregated.elapsedDuration += stats->elapsedDuration;
+            aggregated.movingDistance += stats->movingDistance;
+            aggregated.stoppedDistance += stats->stoppedDistance;
+            aggregated.validIntervals += stats->validIntervals;
+            aggregated.invalidIntervals += stats->invalidIntervals;
+            aggregated.gapIntervals += stats->gapIntervals;
+        }
+        else
+        {
+            aggregated.invalidIntervals += segment.pointCount();
+        }
+    }
+
+    if (!hasValidStats)
+    {
+        return std::nullopt;
+    }
+
+    // Calculate average speeds
+    if (aggregated.movingDuration > 0.0)
+    {
+        aggregated.movingAverageSpeed = aggregated.movingDistance / aggregated.movingDuration;
+    }
+    if (aggregated.elapsedDuration > 0.0)
+    {
+        aggregated.elapsedAverageSpeed =
+            (aggregated.movingDistance + aggregated.stoppedDistance) / aggregated.elapsedDuration;
+    }
+
+    return aggregated;
+}
+
+void GPXAnalytics::analyseTrack(Track& track, const MovementOptions& options)
 {
     // Calculate stats for each segment
     for (auto& segment : track.segments)
@@ -222,6 +338,7 @@ void GPXAnalytics::analyseTrack(Track& track)
         auto [gain, loss] = calculateElevationChange(segment);
         segment.elevationGain = gain;
         segment.elevationLoss = loss;
+        segment.movementStats = calculateMovementStats(segment, options);
     }
 
     // Calculate stats for entire track
@@ -230,13 +347,14 @@ void GPXAnalytics::analyseTrack(Track& track)
     track.elevationGain = totalGain;
     track.elevationLoss = totalLoss;
     track.duration = calculateDuration(track);
+    track.movementStats = calculateMovementStats(track, options);
 }
 
-void GPXAnalytics::analyseGPXData(GPXData& gpxData)
+void GPXAnalytics::analyseGPXData(GPXData& gpxData, const MovementOptions& options)
 {
     for (auto& track : gpxData.tracks)
     {
-        analyseTrack(track);
+        analyseTrack(track, options);
     }
 }
 
