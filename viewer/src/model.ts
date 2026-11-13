@@ -29,15 +29,6 @@ export interface Track extends Measurements {
   segments: Segment[];
 }
 
-export interface GarminSample {
-  segmentNumber: number;
-  pointNumber: number;
-  distanceMeters: number;
-  heartRateBpm: number | null;
-  cadenceRpm: number | null;
-  temperatureCelsius: number | null;
-}
-
 export interface Analysis {
   schemaVersion: 1;
   creator: string;
@@ -47,6 +38,13 @@ export interface Analysis {
 export interface ProfilePoint {
   distance: number;
   elevation: number;
+}
+
+export type SensorMetric = "heartRateBpm" | "cadenceRpm" | "temperatureCelsius";
+
+export interface SensorProfilePoint {
+  distance: number;
+  value: number;
 }
 
 export function elevationRuns(segments: Segment[]): ProfilePoint[][] {
@@ -88,24 +86,23 @@ export function coverage(segments: Segment[]) {
   return { points, elevations, timestamps, elevationPairs };
 }
 
-export function garminSamples(track: Track, selectedSegmentIndex: number | null): GarminSample[] {
-  const samples: GarminSample[] = [];
-  track.segments.forEach((segment, segmentIndex) => {
-    if (selectedSegmentIndex !== null && segmentIndex !== selectedSegmentIndex) return;
-    segment.points.forEach((point, pointIndex) => {
-      if (point.heartRateBpm === null && point.cadenceRpm === null &&
-          point.temperatureCelsius === null) return;
-      samples.push({
-        segmentNumber: segmentIndex + 1,
-        pointNumber: pointIndex + 1,
-        distanceMeters: point.distanceMeters,
-        heartRateBpm: point.heartRateBpm,
-        cadenceRpm: point.cadenceRpm,
-        temperatureCelsius: point.temperatureCelsius,
-      });
-    });
-  });
-  return samples;
+export function sensorRuns(segments: Segment[], metric: SensorMetric): SensorProfilePoint[][] {
+  const runs: SensorProfilePoint[][] = [];
+  const offset = segments[0]?.points[0]?.distanceMeters ?? 0;
+  for (const segment of segments) {
+    let run: SensorProfilePoint[] = [];
+    for (const point of segment.points) {
+      const value = point[metric];
+      if (value === null) {
+        if (run.length) runs.push(run);
+        run = [];
+      } else {
+        run.push({ distance: point.distanceMeters - offset, value });
+      }
+    }
+    if (run.length) runs.push(run);
+  }
+  return runs;
 }
 
 export function formatDuration(seconds: number | null): string {

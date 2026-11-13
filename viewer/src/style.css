@@ -44,13 +44,27 @@ footer label { display: flex; align-items: center; gap: 8px; }
 footer p { font-size: 11px; color: #526e7c; }
 a { color: #087f8c; }
 .workspace { padding: 24px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.map-panel, .profile-panel { border: 1px solid #d7e2e7; border-radius: 10px; overflow: hidden; background: #fff; }
+.map-panel, .profile-panel, .sensor-panel { border: 1px solid #d7e2e7; border-radius: 10px; overflow: hidden; background: #fff; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; gap: 10px; border-bottom: 1px solid #e1eaee; }
 .panel-heading span { font-size: 11px; color: #526e7c; }
 #map { width: 100%; height: clamp(320px, 48vh, 650px); background-color: #f1f6f7; background-image: linear-gradient(#dce7ea 1px, transparent 1px), linear-gradient(90deg, #dce7ea 1px, transparent 1px); background-size: 40px 40px; }
 #map-note, #profile-note { margin: 10px 20px; font-size: 11px; color: #526e7c; }
 #profile { display: block; width: 100%; min-height: 130px; max-height: 240px; padding: 6px 10px; }
 #profile text { font-size: 11px; fill: #526e7c; }
+#sensor-profile { display: block; width: 100%; min-height: 240px; max-height: 360px; padding: 6px 10px; }
+#sensor-profile text { font-size: 11px; fill: #526e7c; }
+#sensor-profile .sensor-label { font-weight: 650; fill: #172f42; }
+#sensor-profile .sensor-count, #sensor-profile .sensor-empty { fill: #526e7c; }
+.sensor-grid { stroke: #e3edef; stroke-width: 1; }
+.sensor-line { fill: none; stroke-width: 2; stroke-linejoin: round; }
+.sensor-point { stroke: #fff; stroke-width: 1; }
+.sensor-line.sensor-heart-rate { stroke: #b34663; }
+.sensor-line.sensor-cadence { stroke: #187b69; }
+.sensor-line.sensor-temperature { stroke: #bd6b16; }
+.sensor-point.sensor-heart-rate { fill: #b34663; }
+.sensor-point.sensor-cadence { fill: #187b69; }
+.sensor-point.sensor-temperature { fill: #bd6b16; }
+.sensor-axis-label { font-weight: 650; }
 .grid { stroke: #e3edef; stroke-width: 1; }
 .elevation-line { fill: none; stroke: #087f8c; stroke-width: 2; stroke-linejoin: round; }
 .elevation-point { fill: #087f8c; }

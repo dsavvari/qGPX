@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { coverage, elevationRuns, formatDuration, garminSamples } from "../src/model.ts";
-import type { Segment, Track, TrackPoint } from "../src/model.ts";
+import { coverage, elevationRuns, formatDuration, sensorRuns } from "../src/model.ts";
+import type { Segment, TrackPoint } from "../src/model.ts";
 
 function point(distance: number, elevation: number | null): TrackPoint {
   return {
@@ -55,42 +55,27 @@ test("duration keeps missing, zero, and negative measurements distinct", () => {
   assert.equal(formatDuration(-60), "-0h 1m 0s");
 });
 
-test("Garmin samples retain point locations and include zero cadence", () => {
+test("sensor profiles preserve missing samples, segment gaps, and zero values", () => {
   const first = point(0, null);
   first.heartRateBpm = 120;
-  const second = point(45, null);
+  const second = point(100, null);
+  second.heartRateBpm = 125;
   second.cadenceRpm = 0;
   second.temperatureCelsius = -2.5;
+  const gap = point(45, null);
   const third = point(80, null);
-  const track: Track = {
-    name: "",
-    description: "",
-    pointCount: 3,
-    distanceMeters: 80,
-    elevationGainMeters: 0,
-    elevationLossMeters: 0,
-    durationSeconds: null,
-    maxSpeedMetersPerSecond: null,
-    segments: [segment([first, third]), segment([second])],
-  };
+  third.heartRateBpm = 122;
+  const segments = [segment([first, gap, third]), segment([second])];
 
-  assert.deepEqual(garminSamples(track, null), [
-    {
-      segmentNumber: 1,
-      pointNumber: 1,
-      distanceMeters: 0,
-      heartRateBpm: 120,
-      cadenceRpm: null,
-      temperatureCelsius: null,
-    },
-    {
-      segmentNumber: 2,
-      pointNumber: 1,
-      distanceMeters: 45,
-      heartRateBpm: null,
-      cadenceRpm: 0,
-      temperatureCelsius: -2.5,
-    },
+  assert.deepEqual(sensorRuns(segments, "heartRateBpm"), [
+    [{ distance: 0, value: 120 }],
+    [{ distance: 80, value: 122 }],
+    [{ distance: 100, value: 125 }],
   ]);
-  assert.deepEqual(garminSamples(track, 1), [garminSamples(track, null)[1]]);
+  assert.deepEqual(sensorRuns(segments, "cadenceRpm"), [
+    [{ distance: 100, value: 0 }],
+  ]);
+  assert.deepEqual(sensorRuns(segments, "temperatureCelsius"), [
+    [{ distance: 100, value: -2.5 }],
+  ]);
 });

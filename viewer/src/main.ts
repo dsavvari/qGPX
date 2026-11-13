@@ -12,8 +12,8 @@ import { isEmpty } from "ol/extent.js";
 import { Circle, Fill, Stroke, Style } from "ol/style.js";
 import "ol/ol.css";
 import "./style.css";
-import { coverage, elevationRuns, formatDuration, garminSamples } from "./model.ts";
-import type { Analysis, GarminSample, Measurements, Segment, Track } from "./model.ts";
+import { coverage, elevationRuns, formatDuration, sensorRuns } from "./model.ts";
+import type { Analysis, Measurements, Segment, SensorMetric } from "./model.ts";
 import { createReplay, replayPosition } from "./replay.ts";
 
 function element<T extends Element>(id: string, type: new () => T): T {
@@ -30,10 +30,9 @@ const status = element("status", HTMLParagraphElement);
 const error = element("error", HTMLParagraphElement);
 const description = element("description", HTMLParagraphElement);
 const stats = element("stats", HTMLDListElement);
-const garminNote = element("garmin-note", HTMLParagraphElement);
-const garminRows = element("garmin-rows", HTMLOListElement);
-const garminMore = element("garmin-more", HTMLButtonElement);
 const profileNote = element("profile-note", HTMLParagraphElement);
+const sensorProfile = element("sensor-profile", SVGSVGElement);
+const sensorProfileNote = element("sensor-profile-note", HTMLParagraphElement);
 const mapNote = element("map-note", HTMLParagraphElement);
 const fitButton = element("fit", HTMLButtonElement);
 const basemap = element("basemap", HTMLInputElement);
@@ -91,9 +90,6 @@ let lastFrame = 0;
 let playbackRate = Number(replaySpeed.value);
 let profileDistance = 0;
 let profileOffset = 0;
-let selectedGarminSamples: GarminSample[] = [];
-let displayedGarminSamples = 0;
-const garminPageSize = 100;
 const profileCursor = svgElement("line", {
   x1: "65", x2: "65", y1: "15", y2: "150", class: "replay-cursor",
 });
@@ -236,6 +232,126 @@ function renderProfile(segments: Segment[]) {
   profile.append(profileCursor);
 }
 
+function renderSensorProfile(segments: Segment[]) {
+  const metrics: {
+    field: SensorMetric;
+    label: string;
+    unit: string;
+    color: string;
+  }[] = [
+    { field: "heartRateBpm", label: "Heart rate", unit: "bpm", color: "heart-rate" },
+    { field: "cadenceRpm", label: "Cadence", unit: "rpm", color: "cadence" },
+    { field: "temperatureCelsius", label: "Temperature", unit: "C", color: "temperature" },
+  ];
+  sensorProfile.replaceChildren();
+  const firstDistance = segments[0]?.points[0]?.distanceMeters ?? 0;
+  const lastSegment = segments.at(-1);
+  const maxDistance = (lastSegment?.points.at(-1)?.distanceMeters ?? firstDistance) - firstDistance;
+  const x = (distance: number) => 100 + (distance / (maxDistance || 1)) * 775;
+  let totalSamples = 0;
+
+  metrics.forEach((metric, index) => {
+    const runs = sensorRuns(segments, metric.field);
+    const points = runs.flat();
+    totalSamples += points.length;
+    const rowTop = 12 + index * 112;
+    const plotTop = rowTop + 24;
+    const plotBottom = rowTop + 86;
+    sensorProfile.append(
+      svgElement(
+        "text",
+        { x: "100", y: `${rowTop + 14}`, class: "sensor-label" },
+        `${metric.label} (${metric.unit})`,
+      ),
+      svgElement(
+        "text",
+        { x: "875", y: `${rowTop + 14}`, "text-anchor": "end", class: "sensor-count" },
+        `${points.length.toLocaleString()} samples`,
+      ),
+    );
+    if (!points.length) {
+      sensorProfile.append(
+        svgElement(
+          "text",
+          { x: "100", y: `${plotTop + 34}`, class: "sensor-empty" },
+          "No data in this selection.",
+        ),
+      );
+      return;
+    }
+
+    let min = Infinity;
+    let max = -Infinity;
+    for (const point of points) {
+      min = Math.min(min, point.value);
+      max = Math.max(max, point.value);
+    }
+    const padding = Math.max((max - min) * 0.1, metric.field === "temperatureCelsius" ? 0.5 : 1);
+    const low = min - padding;
+    const high = max + padding;
+    const y = (value: number) => plotBottom - ((value - low) / (high - low)) * (plotBottom - plotTop);
+    for (let tick = 0; tick <= 2; tick++) {
+      const value = low + ((high - low) * tick) / 2;
+      const tickY = y(value);
+      sensorProfile.append(
+        svgElement(
+          "line",
+          { x1: "100", x2: "875", y1: `${tickY}`, y2: `${tickY}`, class: "sensor-grid" },
+        ),
+        svgElement(
+          "text",
+          { x: "92", y: `${tickY + 4}`, "text-anchor": "end", class: "sensor-tick" },
+          metric.field === "temperatureCelsius" ? value.toFixed(1) : value.toFixed(0),
+        ),
+      );
+    }
+    for (const run of runs) {
+      sensorProfile.append(
+        svgElement(
+          "polyline",
+          {
+            points: run.map((point) => `${x(point.distance)},${y(point.value)}`).join(" "),
+            class: `sensor-line sensor-${metric.color}`,
+          },
+        ),
+      );
+      if (run.length === 1 && run[0]) {
+        sensorProfile.append(
+          svgElement("circle", {
+            cx: `${x(run[0].distance)}`,
+            cy: `${y(run[0].value)}`,
+            r: "3",
+            class: `sensor-point sensor-${metric.color}`,
+          }),
+        );
+      }
+    }
+  });
+
+  const ticks = Array.from({ length: 5 }, (_, index) => index / 4);
+  const bottomY = 12 + (metrics.length - 1) * 112 + 86;
+  for (const tick of ticks) {
+    const tickX = 100 + tick * 775;
+    sensorProfile.append(
+      svgElement(
+        "text",
+        { x: `${tickX}`, y: `${bottomY + 18}`, "text-anchor": "middle", class: "sensor-tick" },
+        ((maxDistance * tick) / 1000).toFixed(2),
+      ),
+    );
+  }
+  sensorProfile.append(
+    svgElement(
+      "text",
+      { x: "487.5", y: `${bottomY + 36}`, "text-anchor": "middle", class: "sensor-axis-label" },
+      "Distance (km)",
+    ),
+  );
+  sensorProfileNote.textContent = totalSamples
+    ? "Sensor scales are independent. Gaps are preserved for missing values and between segments."
+    : "No supported Garmin sensor values in this selection. Other imported GPX extensions remain available on export.";
+}
+
 function renderStats(measurements: Measurements, segments: Segment[]) {
   const data = coverage(segments);
   const meters = (value: number | null) => value === null ? "Unavailable" : `${value.toFixed(0)} m`;
@@ -264,55 +380,6 @@ function renderStats(measurements: Measurements, segments: Segment[]) {
   stats.after(note);
 }
 
-function appendGarminSamples() {
-  const end = Math.min(displayedGarminSamples + garminPageSize, selectedGarminSamples.length);
-  for (const sample of selectedGarminSamples.slice(displayedGarminSamples, end)) {
-    const item = document.createElement("li");
-    item.className = "sensor-sample";
-    const location = document.createElement("p");
-    location.className = "sensor-location";
-    location.textContent =
-      `Segment ${sample.segmentNumber}, point ${sample.pointNumber} | ${(sample.distanceMeters / 1000).toFixed(2)} km`;
-    const values = document.createElement("dl");
-    values.className = "sensor-values";
-    for (const [label, value] of [
-      ["Heart rate (bpm)", sample.heartRateBpm],
-      ["Cadence (rpm)", sample.cadenceRpm],
-      ["Temperature (C)", sample.temperatureCelsius],
-    ] as const) {
-      const entry = document.createElement("div");
-      const term = document.createElement("dt");
-      const definition = document.createElement("dd");
-      term.textContent = label;
-      definition.textContent = value === null ? "n/a" : String(value);
-      entry.append(term, definition);
-      values.append(entry);
-    }
-    item.append(location, values);
-    garminRows.append(item);
-  }
-  displayedGarminSamples = end;
-  garminNote.textContent =
-    `Showing ${displayedGarminSamples} of ${selectedGarminSamples.length} point(s) with supported Garmin sensor data.`;
-  garminMore.hidden = displayedGarminSamples >= selectedGarminSamples.length;
-  garminMore.textContent =
-    `Show ${Math.min(garminPageSize, selectedGarminSamples.length - displayedGarminSamples)} more samples`;
-}
-
-function renderGarminData(track: Track, selectedSegmentIndex: number | null) {
-  selectedGarminSamples = garminSamples(track, selectedSegmentIndex);
-  displayedGarminSamples = 0;
-  garminRows.replaceChildren();
-  garminRows.hidden = selectedGarminSamples.length === 0;
-  garminMore.hidden = selectedGarminSamples.length <= garminPageSize;
-  if (!selectedGarminSamples.length) {
-    garminNote.textContent =
-      "No supported Garmin heart-rate, cadence, or temperature samples in this selection. Other imported GPX extensions remain available on export.";
-    return;
-  }
-  appendGarminSamples();
-}
-
 function renderSelection() {
   const track = analysis?.tracks[Number(trackSelect.value)];
   if (!track) return;
@@ -337,8 +404,8 @@ function renderSelection() {
   description.textContent = track.description || "No track description.";
   document.querySelector(".measurement-note")?.remove();
   renderStats(selected ?? track, segments);
-  renderGarminData(track, selectedSegmentIndex);
   renderProfile(segments);
+  renderSensorProfile(segments);
   mapNote.textContent = "Geometry from the C++ parser. Segment breaks are not connected. Polar latitudes are clipped to the basemap's Mercator limits.";
   fitTrack();
   resetReplay(segments);
@@ -358,7 +425,6 @@ function updateFileControls() {
   fileInput.disabled = loading || exporting;
   downloadButton.disabled = loading || exporting || loadedFile === null;
   downloadButton.textContent = exporting ? "Preparing GPX..." : "Download GPX";
-  garminMore.disabled = loading || exporting;
   dropZone.setAttribute("aria-busy", String(loading || exporting));
 }
 
@@ -448,7 +514,6 @@ async function downloadGpx() {
 }
 
 downloadButton.addEventListener("click", () => void downloadGpx());
-garminMore.addEventListener("click", appendGarminSamples);
 fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];
   if (file) void loadFile(file);

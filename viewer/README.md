@@ -40,9 +40,9 @@ For troubleshooting, see [Common issues and how-to guides](../docs/COMMON_ISSUES
 - Download all loaded tracks as GPX 1.1 through the core writer.
 - Track and segment selection, interactive map with fit/zoom/pan.
 - Distance, elevation gain/loss, duration, and sample coverage from the library.
-- Per-point Garmin heart rate, cadence, and temperature for the selected track or
-  segment. Other imported GPX extensions are preserved for export but are not
-  interpreted in the viewer.
+- Aligned heart-rate, cadence, and temperature profiles for the selected track or
+  segment, with independent scales and gaps for missing samples or segment breaks.
+  Other imported GPX extensions are preserved for export but are not interpreted.
 - Derived travel speed in the replay and maximum speed for the selected track or
   segment, displayed in km/h.
 - Elevation profile with gaps at segment boundaries and missing elevations.
@@ -178,8 +178,9 @@ segments; it resets for each track. Coordinates are degrees, lengths/elevations
 are metres, durations are seconds, and timestamps are Unix milliseconds.
 Missing point elevation/time and unavailable duration are JSON `null`.
 `heartRateBpm`, `cadenceRpm`, and `temperatureCelsius` are the recognized Garmin
-point measurements, or `null` when unavailable. The UI displays sensor-bearing
-points for the current track/segment selection, paging through large selections.
+point measurements, or `null` when unavailable. The UI plots available sensor
+measurements against a shared distance axis, using independent vertical scales to
+avoid mixing units.
 `speedMetersPerSecond` describes the interval **ending at** that point and is
 `null` at each segment's first point or for an invalid interval.
 `maxSpeedMetersPerSecond` is available on both tracks and segments; it is `null`
