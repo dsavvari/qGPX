@@ -17,6 +17,7 @@
 #include <fstream>
 #include <iomanip>
 #include <locale>
+#include <map>
 #include <sstream>
 
 namespace qGpx
@@ -24,16 +25,71 @@ namespace qGpx
 namespace core
 {
 
-// Parser State - Tracks current position in XML tree
+namespace
+{
+
+constexpr char NamespaceSeparator = '\x1f';
+constexpr const char* GPXNamespace = "http://www.topografix.com/GPX/1/1";
+constexpr const char* GarminTrackPointExtensionV1 =
+    "http://www.garmin.com/xmlschemas/TrackPointExtension/v1";
+constexpr const char* GarminTrackPointExtensionV2 =
+    "http://www.garmin.com/xmlschemas/TrackPointExtension/v2";
+constexpr const char* GarminGpxExtensionsV3 = "http://www.garmin.com/xmlschemas/GpxExtensions/v3";
+constexpr std::size_t MaxExtensionBytes = 1024 * 1024;
+constexpr std::size_t MaxExtensionDepth = 32;
+
+struct QualifiedName
+{
+    std::string namespaceUri;
+    std::string localName;
+    std::string prefix;
+};
+
+QualifiedName splitName(const char* value)
+{
+    const std::string name(value);
+    const auto separator = name.find(NamespaceSeparator);
+    if (separator == std::string::npos)
+    {
+        return QualifiedName{"", name, ""};
+    }
+
+    const auto prefixSeparator = name.find(NamespaceSeparator, separator + 1);
+    if (prefixSeparator == std::string::npos)
+    {
+        return QualifiedName{name.substr(0, separator), name.substr(separator + 1), ""};
+    }
+    return QualifiedName{name.substr(0, separator),
+                         name.substr(separator + 1, prefixSeparator - separator - 1),
+                         name.substr(prefixSeparator + 1)};
+}
+
+bool isGpxElement(const QualifiedName& name, const char* localName,
+                  const std::string& gpxNamespaceUri)
+{
+    return name.localName == localName && name.namespaceUri == gpxNamespaceUri;
+}
+
+} // namespace
+
+struct ParserState;
+static void stopWithError(ParserState* state, const std::string& message);
+
 struct ParserState
 {
+    struct PreviousNamespaceBinding
+    {
+        std::string prefix;
+        std::string namespaceUri;
+        bool existed;
+    };
+
     XML_Parser parser = nullptr;
     GPXData gpxData;
     Track currentTrack;
     TrackSegment currentSegment;
     TrackPoint* currentPoint = nullptr;
 
-    // Current element tracking
     enum class Element
     {
         None,
@@ -45,56 +101,75 @@ struct ParserState
         Time,
         Name,
         Type,
-        Description
+        Description,
+        Extensions
     };
-
-    static bool isAllowedParentElement(Element parent, Element child)
-    {
-        switch (child)
-        {
-        case Element::GPX:
-            return parent == Element::None;
-        case Element::Track:
-            return parent == Element::GPX || parent == Element::None;
-        case Element::TrackSegment:
-            return parent == Element::Track;
-        case Element::TrackPoint:
-            return parent == Element::TrackSegment;
-        case Element::Elevation:
-        case Element::Time:
-            return parent == Element::TrackPoint;
-        case Element::Name:
-        case Element::Type:
-        case Element::Description:
-            return parent == Element::Track;
-        default:
-            return true;
-        }
-    }
 
     std::vector<Element> elementStack;
     std::string characterData;
     std::string errorMessage;
+    std::string gpxNamespaceUri;
+    std::map<std::string, std::string> namespaceBindings;
+    std::vector<std::vector<PreviousNamespaceBinding>> namespaceScopeStack;
+    std::vector<NamespaceBinding> pendingNamespaceDeclarations;
+    std::vector<NamespaceBinding> namespaceDeclarationsForCurrentElement;
+    bool capturingExtensions = false;
+    std::size_t extensionDepth = 0;
+    std::size_t extensionBytes = 0;
+    std::size_t gpxExtensionBytes = 0;
+    std::size_t trackExtensionBytes = 0;
+    std::size_t segmentExtensionBytes = 0;
+    std::size_t pointExtensionBytes = 0;
+    std::size_t* extensionBudget = nullptr;
+    std::vector<ExtensionNode>* extensionTarget = nullptr;
+    std::vector<ExtensionNode*> extensionNodeStack;
 
-    void pushElement(Element elem)
+    void beginElement()
     {
-        const Element parent = currentElement();
-        if (!isAllowedParentElement(parent, elem))
+        namespaceDeclarationsForCurrentElement = pendingNamespaceDeclarations;
+        std::vector<PreviousNamespaceBinding> previousBindings;
+        previousBindings.reserve(pendingNamespaceDeclarations.size());
+        for (const auto& binding : pendingNamespaceDeclarations)
         {
-            currentPoint = nullptr;
-            errorMessage = "Malformed GPX nesting";
-            XML_StopParser(parser, XML_FALSE);
-            return;
+            const auto existing = namespaceBindings.find(binding.prefix);
+            previousBindings.push_back(PreviousNamespaceBinding{
+                binding.prefix, existing == namespaceBindings.end() ? "" : existing->second,
+                existing != namespaceBindings.end()});
+            namespaceBindings[binding.prefix] = binding.namespaceUri;
         }
-        elementStack.push_back(elem);
+        namespaceScopeStack.push_back(std::move(previousBindings));
+        pendingNamespaceDeclarations.clear();
     }
 
-    void popElement()
+    void endElementScope()
     {
-        if (!elementStack.empty())
+        if (!namespaceScopeStack.empty())
         {
-            elementStack.pop_back();
+            for (auto iter = namespaceScopeStack.back().rbegin();
+                 iter != namespaceScopeStack.back().rend(); ++iter)
+            {
+                if (iter->existed)
+                {
+                    namespaceBindings[iter->prefix] = iter->namespaceUri;
+                }
+                else
+                {
+                    namespaceBindings.erase(iter->prefix);
+                }
+            }
+            namespaceScopeStack.pop_back();
         }
+    }
+
+    std::vector<NamespaceBinding> activeNamespaceBindings() const
+    {
+        std::vector<NamespaceBinding> bindings;
+        bindings.reserve(namespaceBindings.size());
+        for (const auto& binding : namespaceBindings)
+        {
+            bindings.push_back(NamespaceBinding{binding.first, binding.second});
+        }
+        return bindings;
     }
 
     Element currentElement() const
@@ -102,9 +177,88 @@ struct ParserState
         return elementStack.empty() ? Element::None : elementStack.back();
     }
 
-    void clearCharacterData()
+    void appendExtensionNode(const QualifiedName& name, const char** atts)
     {
-        characterData.clear();
+        if (extensionDepth >= MaxExtensionDepth)
+        {
+            stopWithError(this, "GPX extension nesting exceeds the maximum depth of 32");
+            return;
+        }
+
+        ExtensionNode node;
+        node.namespaceUri = name.namespaceUri;
+        node.localName = name.localName;
+        node.prefix = name.prefix;
+        if (extensionNodeStack.empty())
+        {
+            node.inScopeNamespaces = activeNamespaceBindings();
+        }
+        node.namespaceDeclarations = namespaceDeclarationsForCurrentElement;
+
+        std::size_t nodeBytes =
+            name.namespaceUri.size() + name.localName.size() + name.prefix.size();
+        for (const auto& binding : node.inScopeNamespaces)
+        {
+            nodeBytes += binding.prefix.size() + binding.namespaceUri.size();
+        }
+        for (const auto& binding : node.namespaceDeclarations)
+        {
+            nodeBytes += binding.prefix.size() + binding.namespaceUri.size();
+        }
+        for (int i = 0; atts && atts[i]; i += 2)
+        {
+            const auto attributeName = splitName(atts[i]);
+            node.attributes.push_back(ExtensionAttribute{attributeName.namespaceUri,
+                                                         attributeName.localName,
+                                                         attributeName.prefix, atts[i + 1]});
+            nodeBytes += attributeName.namespaceUri.size() + attributeName.localName.size() +
+                         attributeName.prefix.size() + std::strlen(atts[i + 1]);
+        }
+        if (nodeBytes > MaxExtensionBytes - extensionBytes)
+        {
+            stopWithError(this, "GPX extension data exceeds the 1 MiB limit");
+            return;
+        }
+        extensionBytes += nodeBytes;
+
+        if (extensionNodeStack.empty())
+        {
+            extensionTarget->push_back(std::move(node));
+            extensionNodeStack.push_back(&extensionTarget->back());
+        }
+        else
+        {
+            auto* parent = extensionNodeStack.back();
+            parent->children.push_back(std::move(node));
+            extensionNodeStack.push_back(&parent->children.back());
+        }
+        ++extensionDepth;
+    }
+
+    void appendExtensionText(const char* text, int length)
+    {
+        if (length <= 0)
+        {
+            return;
+        }
+        const auto textLength = static_cast<std::size_t>(length);
+        if (textLength > MaxExtensionBytes - extensionBytes)
+        {
+            stopWithError(this, "GPX extension data exceeds the 1 MiB limit");
+            return;
+        }
+        extensionBytes += textLength;
+        auto* children =
+            extensionNodeStack.empty() ? extensionTarget : &extensionNodeStack.back()->children;
+        if (!children->empty() && children->back().kind == ExtensionNode::Kind::Text)
+        {
+            children->back().text.append(text, textLength);
+            return;
+        }
+        ExtensionNode node;
+        node.kind = ExtensionNode::Kind::Text;
+        node.text.assign(text, textLength);
+        children->push_back(std::move(node));
     }
 };
 
@@ -144,57 +298,285 @@ static void stopWithError(ParserState* state, const std::string& message)
     XML_StopParser(state->parser, XML_FALSE);
 }
 
-// Expat Callback Handlers
-static void XMLCALL startElementHandler(void* userData, const char* name, const char** atts)
+static std::string trimXmlWhitespace(const std::string& value)
 {
-    auto* state = static_cast<ParserState*>(userData);
-    state->clearCharacterData();
-
-    // Parse element name (ignore namespace prefixes for simplicity)
-    std::string elementName(name);
-    size_t colonPos = elementName.find(':');
-    if (colonPos != std::string::npos)
+    const auto first = value.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos)
     {
-        elementName = elementName.substr(colonPos + 1);
+        return "";
+    }
+    return value.substr(first, value.find_last_not_of(" \t\r\n") - first + 1);
+}
+
+static bool parseGarminUnsignedByte(const std::string& text, unsigned int minimum,
+                                    unsigned int maximum, uint8_t& value)
+{
+    auto normalized = trimXmlWhitespace(text);
+    if (normalized.empty())
+    {
+        return false;
+    }
+    if (normalized.front() == '+')
+    {
+        normalized.erase(normalized.begin());
+        if (normalized.empty())
+        {
+            return false;
+        }
+    }
+    unsigned int parsed = 0;
+    const auto [end, error] =
+        std::from_chars(normalized.data(), normalized.data() + normalized.size(), parsed);
+    if (error != std::errc{} || end != normalized.data() + normalized.size() || parsed < minimum ||
+        parsed > maximum)
+    {
+        return false;
+    }
+    value = static_cast<uint8_t>(parsed);
+    return true;
+}
+
+static bool parseGarminTemperature(const std::string& text, double& value)
+{
+    std::istringstream input(trimXmlWhitespace(text));
+    input.imbue(std::locale::classic());
+    double parsed = 0.0;
+    input >> parsed;
+    if (input.fail() || !std::isfinite(parsed))
+    {
+        return false;
+    }
+    input >> std::ws;
+    if (!input.eof())
+    {
+        return false;
+    }
+    value = parsed;
+    return true;
+}
+
+static bool parseGarminMeasurement(const ExtensionNode& node, std::string& text)
+{
+    for (const auto& child : node.children)
+    {
+        if (child.kind != ExtensionNode::Kind::Text)
+        {
+            return false;
+        }
+        text += child.text;
+    }
+    return true;
+}
+
+static bool applyGarminSensors(ParserState* state, const std::vector<ExtensionNode>& extensions)
+{
+    if (!state->currentPoint)
+    {
+        return true;
     }
 
-    // Handle different elements
-    if (elementName == "gpx")
+    for (const auto& extension : extensions)
     {
-        state->pushElement(ParserState::Element::GPX);
+        if (extension.kind != ExtensionNode::Kind::Element ||
+            extension.localName != "TrackPointExtension")
+        {
+            continue;
+        }
+        const bool versionOneOrTwo = extension.namespaceUri == GarminTrackPointExtensionV1 ||
+                                     extension.namespaceUri == GarminTrackPointExtensionV2;
+        const bool versionThree = extension.namespaceUri == GarminGpxExtensionsV3;
+        if (!versionOneOrTwo && !versionThree)
+        {
+            continue;
+        }
 
-        // Parse creator attribute
-        // TODO: Parse other attributes if needed
+        for (const auto& child : extension.children)
+        {
+            if (child.kind != ExtensionNode::Kind::Element ||
+                child.namespaceUri != extension.namespaceUri)
+            {
+                continue;
+            }
+
+            const bool isHeartRate = versionOneOrTwo && child.localName == "hr";
+            const bool isCadence = versionOneOrTwo && child.localName == "cad";
+            const bool isV1OrV2Temperature = versionOneOrTwo && child.localName == "atemp";
+            const bool isV3Temperature = versionThree && child.localName == "Temperature";
+            if (!isHeartRate && !isCadence && !isV1OrV2Temperature && !isV3Temperature)
+            {
+                continue;
+            }
+
+            std::string text;
+            if (!parseGarminMeasurement(child, text))
+            {
+                stopWithError(state, "Malformed Garmin sensor value");
+                return false;
+            }
+            if (isHeartRate)
+            {
+                uint8_t value = 0;
+                if (state->currentPoint->heartRateBpm ||
+                    !parseGarminUnsignedByte(text, 1, 255, value))
+                {
+                    stopWithError(state, state->currentPoint->heartRateBpm
+                                             ? "Duplicate Garmin heart rate value"
+                                             : "Invalid Garmin heart rate value");
+                    return false;
+                }
+                state->currentPoint->heartRateBpm = value;
+            }
+            else if (isCadence)
+            {
+                uint8_t value = 0;
+                if (state->currentPoint->cadenceRpm ||
+                    !parseGarminUnsignedByte(text, 0, 254, value))
+                {
+                    stopWithError(state, state->currentPoint->cadenceRpm
+                                             ? "Duplicate Garmin cadence value"
+                                             : "Invalid Garmin cadence value");
+                    return false;
+                }
+                state->currentPoint->cadenceRpm = value;
+            }
+            else
+            {
+                double value = 0.0;
+                if (state->currentPoint->temperatureCelsius || !parseGarminTemperature(text, value))
+                {
+                    stopWithError(state, state->currentPoint->temperatureCelsius
+                                             ? "Duplicate Garmin temperature value"
+                                             : "Invalid Garmin temperature value");
+                    return false;
+                }
+                state->currentPoint->temperatureCelsius = value;
+            }
+        }
+    }
+    return true;
+}
+
+static void XMLCALL startNamespaceDeclHandler(void* userData, const char* prefix, const char* uri)
+{
+    auto* state = static_cast<ParserState*>(userData);
+    state->pendingNamespaceDeclarations.push_back(
+        NamespaceBinding{prefix ? prefix : "", uri ? uri : ""});
+}
+
+static std::vector<ExtensionNode>* extensionTarget(ParserState* state)
+{
+    switch (state->currentElement())
+    {
+    case ParserState::Element::GPX:
+        return &state->gpxData.extensions;
+    case ParserState::Element::Track:
+        return &state->currentTrack.extensions;
+    case ParserState::Element::TrackSegment:
+        return &state->currentSegment.extensions;
+    case ParserState::Element::TrackPoint:
+        return state->currentPoint ? &state->currentPoint->extensions : nullptr;
+    default:
+        return nullptr;
+    }
+}
+
+static std::size_t* extensionBudget(ParserState* state)
+{
+    switch (state->currentElement())
+    {
+    case ParserState::Element::GPX:
+        return &state->gpxExtensionBytes;
+    case ParserState::Element::Track:
+        return &state->trackExtensionBytes;
+    case ParserState::Element::TrackSegment:
+        return &state->segmentExtensionBytes;
+    case ParserState::Element::TrackPoint:
+        return &state->pointExtensionBytes;
+    default:
+        return nullptr;
+    }
+}
+
+static void XMLCALL startElementHandler(void* userData, const char* rawName, const char** atts)
+{
+    auto* state = static_cast<ParserState*>(userData);
+    state->beginElement();
+    const auto name = splitName(rawName);
+
+    if (state->capturingExtensions)
+    {
+        state->appendExtensionNode(name, atts);
+        return;
+    }
+
+    state->characterData.clear();
+    const auto parent = state->currentElement();
+    if (isGpxElement(name, "extensions", state->gpxNamespaceUri))
+    {
+        auto* target = extensionTarget(state);
+        auto* budget = extensionBudget(state);
+        if (target && budget)
+        {
+            state->capturingExtensions = true;
+            state->extensionDepth = 0;
+            state->extensionBytes = *budget;
+            state->extensionBudget = budget;
+            state->extensionTarget = target;
+            state->extensionNodeStack.clear();
+            state->elementStack.push_back(ParserState::Element::Extensions);
+            return;
+        }
+    }
+    if (name.localName == "gpx" && (name.namespaceUri.empty() || name.namespaceUri == GPXNamespace))
+    {
+        if (parent != ParserState::Element::None)
+        {
+            stopWithError(state, "Malformed GPX nesting");
+            return;
+        }
+        state->gpxNamespaceUri = name.namespaceUri;
+        state->gpxExtensionBytes = 0;
+        state->elementStack.push_back(ParserState::Element::GPX);
         for (int i = 0; atts[i]; i += 2)
         {
-            if (std::strcmp(atts[i], "creator") == 0)
+            const auto attributeName = splitName(atts[i]);
+            if (attributeName.namespaceUri.empty() && attributeName.localName == "creator")
             {
                 state->gpxData.creator = atts[i + 1];
             }
         }
     }
-    else if (elementName == "trk")
+    else if (isGpxElement(name, "trk", state->gpxNamespaceUri))
     {
-        state->pushElement(ParserState::Element::Track);
-        state->currentTrack = Track(); // Reset current track
-    }
-    else if (elementName == "trkseg")
-    {
-        state->currentPoint = nullptr;
-        state->pushElement(ParserState::Element::TrackSegment);
-        state->currentSegment = TrackSegment(); // Reset current segment
-    }
-    else if (elementName == "trkpt")
-    {
-        const auto parent = state->currentElement();
-        if (parent != ParserState::Element::TrackSegment)
+        if (parent != ParserState::Element::GPX)
         {
-            state->currentPoint = nullptr;
             stopWithError(state, "Malformed GPX nesting");
             return;
         }
-
-        state->pushElement(ParserState::Element::TrackPoint);
+        state->elementStack.push_back(ParserState::Element::Track);
+        state->currentTrack = Track();
+        state->trackExtensionBytes = 0;
+    }
+    else if (isGpxElement(name, "trkseg", state->gpxNamespaceUri))
+    {
+        if (parent != ParserState::Element::Track)
+        {
+            stopWithError(state, "Malformed GPX nesting");
+            return;
+        }
+        state->currentPoint = nullptr;
+        state->elementStack.push_back(ParserState::Element::TrackSegment);
+        state->currentSegment = TrackSegment();
+        state->segmentExtensionBytes = 0;
+    }
+    else if (isGpxElement(name, "trkpt", state->gpxNamespaceUri))
+    {
+        if (parent != ParserState::Element::TrackSegment)
+        {
+            stopWithError(state, "Malformed GPX nesting");
+            return;
+        }
+        state->elementStack.push_back(ParserState::Element::TrackPoint);
 
         // Parse lat/lon attributes
         const char* latitude = nullptr;
@@ -202,11 +584,12 @@ static void XMLCALL startElementHandler(void* userData, const char* name, const 
 
         for (int i = 0; atts[i]; i += 2)
         {
-            if (std::strcmp(atts[i], "lat") == 0)
+            const auto attributeName = splitName(atts[i]);
+            if (attributeName.namespaceUri.empty() && attributeName.localName == "lat")
             {
                 latitude = atts[i + 1];
             }
-            else if (std::strcmp(atts[i], "lon") == 0)
+            else if (attributeName.namespaceUri.empty() && attributeName.localName == "lon")
             {
                 longitude = atts[i + 1];
             }
@@ -233,52 +616,84 @@ static void XMLCALL startElementHandler(void* userData, const char* name, const 
 
         state->currentSegment.points.emplace_back(lat, lon);
         state->currentPoint = &state->currentSegment.points.back();
+        state->pointExtensionBytes = 0;
     }
-    else if (elementName == "ele" || elementName == "time" || elementName == "name" ||
-             elementName == "type" || elementName == "desc")
+    else if (isGpxElement(name, "ele", state->gpxNamespaceUri) &&
+             parent == ParserState::Element::TrackPoint)
     {
-        // These tags also appear in metadata, authors, links and extensions; only the
-        // track and track point ones carry data, anything else is ignored.
-        const auto parent = state->currentElement();
-        if (elementName == "ele" && parent == ParserState::Element::TrackPoint)
-        {
-            state->pushElement(ParserState::Element::Elevation);
-        }
-        else if (elementName == "time" && parent == ParserState::Element::TrackPoint)
-        {
-            state->pushElement(ParserState::Element::Time);
-        }
-        else if (elementName == "name" && parent == ParserState::Element::Track)
-        {
-            state->pushElement(ParserState::Element::Name);
-        }
-        else if (elementName == "type" && parent == ParserState::Element::Track)
-        {
-            state->pushElement(ParserState::Element::Type);
-        }
-        else if (elementName == "desc" && parent == ParserState::Element::Track)
-        {
-            state->pushElement(ParserState::Element::Description);
-        }
-        else
-        {
-            state->pushElement(ParserState::Element::None);
-        }
+        state->elementStack.push_back(ParserState::Element::Elevation);
+    }
+    else if (isGpxElement(name, "time", state->gpxNamespaceUri) &&
+             parent == ParserState::Element::TrackPoint)
+    {
+        state->elementStack.push_back(ParserState::Element::Time);
+    }
+    else if (isGpxElement(name, "name", state->gpxNamespaceUri) &&
+             parent == ParserState::Element::Track)
+    {
+        state->elementStack.push_back(ParserState::Element::Name);
+    }
+    else if (isGpxElement(name, "type", state->gpxNamespaceUri) &&
+             parent == ParserState::Element::Track)
+    {
+        state->elementStack.push_back(ParserState::Element::Type);
+    }
+    else if (isGpxElement(name, "desc", state->gpxNamespaceUri) &&
+             parent == ParserState::Element::Track)
+    {
+        state->elementStack.push_back(ParserState::Element::Description);
     }
     else
     {
-        // Unknown element, push None to maintain stack depth
-        state->pushElement(ParserState::Element::None);
+        state->elementStack.push_back(ParserState::Element::None);
     }
 }
 
-static void XMLCALL endElementHandler(void* userData, const char* /* name */)
+static void XMLCALL endElementHandler(void* userData, const char* rawName)
 {
     auto* state = static_cast<ParserState*>(userData);
+    const auto name = splitName(rawName);
+
+    if (state->capturingExtensions)
+    {
+        if (state->extensionDepth > 0)
+        {
+            state->extensionNodeStack.pop_back();
+            --state->extensionDepth;
+            state->endElementScope();
+            return;
+        }
+
+        if (isGpxElement(name, "extensions", state->gpxNamespaceUri))
+        {
+            const auto parent = state->elementStack.size() > 1
+                                    ? state->elementStack[state->elementStack.size() - 2]
+                                    : ParserState::Element::None;
+            if (parent == ParserState::Element::TrackPoint &&
+                !applyGarminSensors(state, *state->extensionTarget))
+            {
+                return;
+            }
+            state->capturingExtensions = false;
+            *state->extensionBudget = state->extensionBytes;
+            state->extensionBudget = nullptr;
+            state->extensionTarget = nullptr;
+            state->extensionNodeStack.clear();
+            if (!state->elementStack.empty())
+            {
+                state->elementStack.pop_back();
+            }
+            state->endElementScope();
+            state->characterData.clear();
+            return;
+        }
+
+        stopWithError(state, "Malformed GPX extension nesting");
+        return;
+    }
 
     ParserState::Element elem = state->currentElement();
 
-    // Process accumulated character data
     switch (elem)
     {
     case ParserState::Element::Elevation:
@@ -336,7 +751,6 @@ static void XMLCALL endElementHandler(void* userData, const char* /* name */)
         break;
 
     case ParserState::Element::Track:
-        // End of track - add to GPX data
         if (!state->currentTrack.segments.empty())
         {
             state->gpxData.tracks.push_back(std::move(state->currentTrack));
@@ -349,15 +763,23 @@ static void XMLCALL endElementHandler(void* userData, const char* /* name */)
         break;
     }
 
-    state->popElement();
-    state->clearCharacterData();
+    if (!state->elementStack.empty())
+    {
+        state->elementStack.pop_back();
+    }
+    state->endElementScope();
+    state->characterData.clear();
 }
 
 static void XMLCALL characterDataHandler(void* userData, const char* s, int len)
 {
     auto* state = static_cast<ParserState*>(userData);
 
-    // Only accumulate character data for relevant elements
+    if (state->capturingExtensions)
+    {
+        state->appendExtensionText(s, len);
+        return;
+    }
     switch (state->currentElement())
     {
     case ParserState::Element::Elevation:
@@ -381,7 +803,7 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
     }
 
     // Create expat parser
-    XML_Parser parser = XML_ParserCreate(nullptr);
+    XML_Parser parser = XML_ParserCreateNS(nullptr, NamespaceSeparator);
     if (!parser)
     {
         return Result<GPXData>::makeFailure("Failed to create XML parser");
@@ -391,6 +813,8 @@ Result<GPXData> GPXParser::parse(const std::string& xmlContent)
     ParserState state;
     state.parser = parser;
     XML_SetUserData(parser, &state);
+    XML_SetReturnNSTriplet(parser, XML_TRUE);
+    XML_SetNamespaceDeclHandler(parser, startNamespaceDeclHandler, nullptr);
     XML_SetElementHandler(parser, startElementHandler, endElementHandler);
     XML_SetCharacterDataHandler(parser, characterDataHandler);
 

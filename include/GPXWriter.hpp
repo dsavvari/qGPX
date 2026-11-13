@@ -8,11 +8,12 @@ namespace qGpx
 namespace core
 {
 
-/// Writes the modeled track fields as UTF-8 GPX 1.1, not a lossless copy of the input.
+/// Writes modeled track fields and retained extensions as UTF-8 GPX 1.1, not a
+/// lossless copy of the input.
 class GPXWriter
 {
 public:
-    /// Serialize tracks, segments, coordinates, elevation and UTC timestamps.
+    /// Serialize tracks, segments, sensor fields, retained extensions and UTC timestamps.
     /// Numbers use shortest round-trip decimal representations without exponents.
     /// Coordinates are padded to at least six decimal places and elevations to two;
     /// additional significant digits are retained without rounding.

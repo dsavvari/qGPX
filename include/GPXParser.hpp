@@ -13,7 +13,8 @@ namespace qGpx
 namespace core
 {
 
-/// GPX XML parser using libexpat (SAX-style streaming parser).
+/// GPX XML parser using libexpat (SAX-style streaming parser). Recognized GPX tags
+/// are matched by namespace URI; extension trees retain expanded names and bindings.
 /// Coordinates and elevations accept finite decimal numbers with optional surrounding
 /// XML whitespace, but not hexadecimal numbers or scientific notation.
 class GPXParser
