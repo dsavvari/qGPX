@@ -65,6 +65,7 @@ a { color: #087f8c; }
 .sensor-point.sensor-cadence { fill: #187b69; }
 .sensor-point.sensor-temperature { fill: #bd6b16; }
 .sensor-axis-label { font-weight: 650; }
+.sensor-replay-cursor { stroke: #e56b36; stroke-width: 2; stroke-dasharray: 4 3; }
 .grid { stroke: #e3edef; stroke-width: 1; }
 .elevation-line { fill: none; stroke: #087f8c; stroke-width: 2; stroke-linejoin: round; }
 .elevation-point { fill: #087f8c; }

@@ -90,9 +90,17 @@ let lastFrame = 0;
 let playbackRate = Number(replaySpeed.value);
 let profileDistance = 0;
 let profileOffset = 0;
+const profilePlotLeft = 65;
+const profilePlotRight = 875;
+const profilePlotWidth = profilePlotRight - profilePlotLeft;
 const profileCursor = svgElement("line", {
-  x1: "65", x2: "65", y1: "15", y2: "150", class: "replay-cursor",
+  x1: String(profilePlotLeft),
+  x2: String(profilePlotLeft),
+  y1: "15",
+  y2: "150",
+  class: "replay-cursor",
 });
+const sensorProfileCursors: SVGLineElement[] = [];
 replaySource.clear();
 
 function updateReplayControls() {
@@ -122,9 +130,13 @@ function renderReplayPosition() {
   if (follow.checked) map.getView().setCenter(coordinates);
   timeline.value = String(elapsed);
   const distance = position.distanceMeters - profileOffset;
-  const x = 65 + distance / (profileDistance || 1) * 810;
+  const x = profilePlotLeft + distance / (profileDistance || 1) * profilePlotWidth;
   profileCursor.setAttribute("x1", String(x));
   profileCursor.setAttribute("x2", String(x));
+  for (const cursor of sensorProfileCursors) {
+    cursor.setAttribute("x1", String(x));
+    cursor.setAttribute("x2", String(x));
+  }
   const elevation = position.elevationMeters === null ? "elevation unavailable" :
     `${position.elevationMeters.toFixed(0)} m elevation`;
   const speed = position.speedMetersPerSecond === null ? "speed unavailable" :
@@ -207,14 +219,33 @@ function renderProfile(segments: Segment[]) {
   const padding = Math.max((max - min) * 0.1, 1);
   const low = min - padding;
   const high = max + padding;
-  const x = (distance: number) => 65 + (distance / (maxDistance || 1)) * 810;
+  const x = (distance: number) =>
+    profilePlotLeft + (distance / (maxDistance || 1)) * profilePlotWidth;
   const y = (height: number) => 150 - ((height - low) / (high - low)) * 130;
   for (let i = 0; i <= 4; i++) {
     const height = low + ((high - low) * i) / 4;
     profile.append(
-      svgElement("line", { x1: "65", x2: "875", y1: `${y(height)}`, y2: `${y(height)}`, class: "grid" }),
-      svgElement("text", { x: "55", y: `${y(height) + 4}`, "text-anchor": "end" }, height.toFixed(0)),
-      svgElement("text", { x: `${65 + i * 202.5}`, y: "178", "text-anchor": "middle" }, ((maxDistance * i) / 4000).toFixed(2)),
+      svgElement("line", {
+        x1: String(profilePlotLeft),
+        x2: String(profilePlotRight),
+        y1: `${y(height)}`,
+        y2: `${y(height)}`,
+        class: "grid",
+      }),
+      svgElement(
+        "text",
+        { x: String(profilePlotLeft - 10), y: `${y(height) + 4}`, "text-anchor": "end" },
+        height.toFixed(0),
+      ),
+      svgElement(
+        "text",
+        {
+          x: `${profilePlotLeft + (profilePlotWidth * i) / 4}`,
+          y: "178",
+          "text-anchor": "middle",
+        },
+        ((maxDistance * i) / 4000).toFixed(2),
+      ),
     );
   }
   for (const run of runs) {
@@ -244,10 +275,9 @@ function renderSensorProfile(segments: Segment[]) {
     { field: "temperatureCelsius", label: "Temperature", unit: "C", color: "temperature" },
   ];
   sensorProfile.replaceChildren();
-  const firstDistance = segments[0]?.points[0]?.distanceMeters ?? 0;
-  const lastSegment = segments.at(-1);
-  const maxDistance = (lastSegment?.points.at(-1)?.distanceMeters ?? firstDistance) - firstDistance;
-  const x = (distance: number) => 100 + (distance / (maxDistance || 1)) * 775;
+  sensorProfileCursors.length = 0;
+  const x = (distance: number) =>
+    profilePlotLeft + (distance / (profileDistance || 1)) * profilePlotWidth;
   let totalSamples = 0;
 
   metrics.forEach((metric, index) => {
@@ -260,12 +290,17 @@ function renderSensorProfile(segments: Segment[]) {
     sensorProfile.append(
       svgElement(
         "text",
-        { x: "100", y: `${rowTop + 14}`, class: "sensor-label" },
+        { x: String(profilePlotLeft), y: `${rowTop + 14}`, class: "sensor-label" },
         `${metric.label} (${metric.unit})`,
       ),
       svgElement(
         "text",
-        { x: "875", y: `${rowTop + 14}`, "text-anchor": "end", class: "sensor-count" },
+        {
+          x: String(profilePlotRight),
+          y: `${rowTop + 14}`,
+          "text-anchor": "end",
+          class: "sensor-count",
+        },
         `${points.length.toLocaleString()} samples`,
       ),
     );
@@ -273,7 +308,7 @@ function renderSensorProfile(segments: Segment[]) {
       sensorProfile.append(
         svgElement(
           "text",
-          { x: "100", y: `${plotTop + 34}`, class: "sensor-empty" },
+          { x: String(profilePlotLeft), y: `${plotTop + 34}`, class: "sensor-empty" },
           "No data in this selection.",
         ),
       );
@@ -296,11 +331,22 @@ function renderSensorProfile(segments: Segment[]) {
       sensorProfile.append(
         svgElement(
           "line",
-          { x1: "100", x2: "875", y1: `${tickY}`, y2: `${tickY}`, class: "sensor-grid" },
+          {
+            x1: String(profilePlotLeft),
+            x2: String(profilePlotRight),
+            y1: `${tickY}`,
+            y2: `${tickY}`,
+            class: "sensor-grid",
+          },
         ),
         svgElement(
           "text",
-          { x: "92", y: `${tickY + 4}`, "text-anchor": "end", class: "sensor-tick" },
+          {
+            x: String(profilePlotLeft - 8),
+            y: `${tickY + 4}`,
+            "text-anchor": "end",
+            class: "sensor-tick",
+          },
           metric.field === "temperatureCelsius" ? value.toFixed(1) : value.toFixed(0),
         ),
       );
@@ -326,24 +372,38 @@ function renderSensorProfile(segments: Segment[]) {
         );
       }
     }
+    const cursor = svgElement("line", {
+      x1: String(profilePlotLeft),
+      x2: String(profilePlotLeft),
+      y1: String(plotTop),
+      y2: String(plotBottom),
+      class: "sensor-replay-cursor",
+    });
+    sensorProfileCursors.push(cursor);
+    sensorProfile.append(cursor);
   });
 
   const ticks = Array.from({ length: 5 }, (_, index) => index / 4);
   const bottomY = 12 + (metrics.length - 1) * 112 + 86;
   for (const tick of ticks) {
-    const tickX = 100 + tick * 775;
+    const tickX = profilePlotLeft + tick * profilePlotWidth;
     sensorProfile.append(
       svgElement(
         "text",
         { x: `${tickX}`, y: `${bottomY + 18}`, "text-anchor": "middle", class: "sensor-tick" },
-        ((maxDistance * tick) / 1000).toFixed(2),
+        ((profileDistance * tick) / 1000).toFixed(2),
       ),
     );
   }
   sensorProfile.append(
     svgElement(
       "text",
-      { x: "487.5", y: `${bottomY + 36}`, "text-anchor": "middle", class: "sensor-axis-label" },
+      {
+        x: String(profilePlotLeft + profilePlotWidth / 2),
+        y: `${bottomY + 36}`,
+        "text-anchor": "middle",
+        class: "sensor-axis-label",
+      },
       "Distance (km)",
     ),
   );

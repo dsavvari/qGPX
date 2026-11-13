@@ -47,7 +47,8 @@ For troubleshooting, see [Common issues and how-to guides](../docs/COMMON_ISSUES
   segment, displayed in km/h.
 - Elevation profile with gaps at segment boundaries and missing elevations.
 - 2D replay: play/pause, restart, speed selection, timeline scrubbing, optional
-  follow-camera, and a synchronised elevation-profile cursor.
+  follow-camera, and synchronised dashed cursors across the elevation and sensor
+  profiles.
 - Visible upload/parser errors; a failed upload leaves the previous view intact.
 - Missing elevation/time values remain distinct from zero measurements.
 - Optional OpenStreetMap tiles, **off by default**. With tiles disabled, assets
