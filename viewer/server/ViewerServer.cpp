@@ -104,25 +104,47 @@ json serialize(core::GPXData& data)
                      {"distanceMeters", finite(distance)}});
             }
             const auto duration = core::GPXAnalytics::calculateDuration(segment);
-            segments.push_back(
-                {{"points", points},
-                 {"distanceMeters", finite(*segment.totalDistance)},
-                 {"elevationGainMeters", elevation(segment.elevationGain)},
-                 {"elevationLossMeters", elevation(segment.elevationLoss)},
-                 {"maxSpeedMetersPerSecond",
-                  elevation(core::GPXAnalytics::calculateMaxSpeed(segment))},
-                 {"durationSeconds", duration ? json(duration->count()) : json(nullptr)}});
+            auto segmentJson =
+                json{{"points", points},
+                     {"distanceMeters", finite(*segment.totalDistance)},
+                     {"elevationGainMeters", elevation(segment.elevationGain)},
+                     {"elevationLossMeters", elevation(segment.elevationLoss)},
+                     {"maxSpeedMetersPerSecond",
+                      elevation(core::GPXAnalytics::calculateMaxSpeed(segment))},
+                     {"durationSeconds", duration ? json(duration->count()) : json(nullptr)}};
+            if (segment.movementStats)
+            {
+                segmentJson["movingDurationSeconds"] = segment.movementStats->movingDuration;
+                segmentJson["stoppedDurationSeconds"] = segment.movementStats->stoppedDuration;
+            }
+            else
+            {
+                segmentJson["movingDurationSeconds"] = nullptr;
+                segmentJson["stoppedDurationSeconds"] = nullptr;
+            }
+            segments.push_back(segmentJson);
         }
-        tracks.push_back(
-            {{"name", track.name},
-             {"description", track.description},
-             {"pointCount", track.totalPointCount()},
-             {"distanceMeters", finite(*track.totalDistance)},
-             {"elevationGainMeters", elevation(track.elevationGain)},
-             {"elevationLossMeters", elevation(track.elevationLoss)},
-             {"maxSpeedMetersPerSecond", elevation(core::GPXAnalytics::calculateMaxSpeed(track))},
-             {"durationSeconds", track.duration ? json(track.duration->count()) : json(nullptr)},
-             {"segments", segments}});
+        auto trackJson = json{
+            {"name", track.name},
+            {"description", track.description},
+            {"pointCount", track.totalPointCount()},
+            {"distanceMeters", finite(*track.totalDistance)},
+            {"elevationGainMeters", elevation(track.elevationGain)},
+            {"elevationLossMeters", elevation(track.elevationLoss)},
+            {"maxSpeedMetersPerSecond", elevation(core::GPXAnalytics::calculateMaxSpeed(track))},
+            {"durationSeconds", track.duration ? json(track.duration->count()) : json(nullptr)},
+            {"segments", segments}};
+        if (track.movementStats)
+        {
+            trackJson["movingDurationSeconds"] = track.movementStats->movingDuration;
+            trackJson["stoppedDurationSeconds"] = track.movementStats->stoppedDuration;
+        }
+        else
+        {
+            trackJson["movingDurationSeconds"] = nullptr;
+            trackJson["stoppedDurationSeconds"] = nullptr;
+        }
+        tracks.push_back(trackJson);
     }
     return {{"schemaVersion", 1}, {"creator", data.creator}, {"tracks", tracks}};
 }
